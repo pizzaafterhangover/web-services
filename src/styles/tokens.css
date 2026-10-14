@@ -1,0 +1,107 @@
+:root {
+  color-scheme: light;
+
+  --bg: #f6f4ef;
+  --surface: #fdfcf9;
+  --surface-sunken: #efece5;
+  --text: #1c1e21;
+  --text-muted: #565c63;
+  --border: #d9d4c9;
+  --border-strong: #b9b2a4;
+  --accent: #0d6767;
+  --accent-soft: #dcebea;
+  --focus: #0d6767;
+
+  --cat-math: #3d5aa8;
+  --cat-robotics: #a5552a;
+  --cat-perception: #7b4ea3;
+  --cat-slam: #0d6767;
+  --cat-control: #9a7a12;
+  --cat-learning: #b23a5a;
+  --cat-simulation: #4b7a2a;
+
+  --callout-def: #3d5aa8;
+  --callout-key: #0d6767;
+  --callout-warn: #a5552a;
+  --callout-lab: #4b7a2a;
+
+  --font-sans: 'Pretendard Variable', Pretendard, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+
+  --text-xs: 0.8125rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+
+  --content-width: 46rem;
+  --page-width: 72rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg: #131517;
+    --surface: #1a1d20;
+    --surface-sunken: #0f1113;
+    --text: #e7e5e0;
+    --text-muted: #a2a8ae;
+    --border: #2d3236;
+    --border-strong: #454c52;
+    --accent: #5cc4be;
+    --accent-soft: #173533;
+    --focus: #5cc4be;
+
+    --cat-math: #8aa3e6;
+    --cat-robotics: #e39a6f;
+    --cat-perception: #b993dc;
+    --cat-slam: #5cc4be;
+    --cat-control: #d9b94c;
+    --cat-learning: #e88aa3;
+    --cat-simulation: #93c46b;
+
+    --callout-def: #8aa3e6;
+    --callout-key: #5cc4be;
+    --callout-warn: #e39a6f;
+    --callout-lab: #93c46b;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #131517;
+  --surface: #1a1d20;
+  --surface-sunken: #0f1113;
+  --text: #e7e5e0;
+  --text-muted: #a2a8ae;
+  --border: #2d3236;
+  --border-strong: #454c52;
+  --accent: #5cc4be;
+  --accent-soft: #173533;
+  --focus: #5cc4be;
+
+  --cat-math: #8aa3e6;
+  --cat-robotics: #e39a6f;
+  --cat-perception: #b993dc;
+  --cat-slam: #5cc4be;
+  --cat-control: #d9b94c;
+  --cat-learning: #e88aa3;
+  --cat-simulation: #93c46b;
+
+  --callout-def: #8aa3e6;
+  --callout-key: #5cc4be;
+  --callout-warn: #e39a6f;
+  --callout-lab: #93c46b;
+}

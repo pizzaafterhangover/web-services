@@ -1,0 +1,144 @@
+.prose {
+  max-width: var(--content-width);
+  min-width: 0;
+}
+
+.prose > * + * {
+  margin-top: var(--space-4);
+}
+
+.prose :where(p, ul, ol) {
+  margin-bottom: 0;
+}
+
+.prose h2 {
+  margin-top: var(--space-7);
+  margin-bottom: 0;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-xl);
+  scroll-margin-top: var(--space-4);
+}
+
+.prose h3 {
+  margin-top: var(--space-6);
+  margin-bottom: 0;
+  font-size: var(--text-lg);
+  scroll-margin-top: var(--space-4);
+}
+
+.prose :where(ul, ol) {
+  padding-left: var(--space-5);
+}
+
+.prose li + li {
+  margin-top: var(--space-1);
+}
+
+.prose blockquote {
+  margin-inline: 0;
+  padding-left: var(--space-4);
+  border-left: 3px solid var(--border-strong);
+  color: var(--text-muted);
+}
+
+.prose :not(pre) > code {
+  padding: 0.1em 0.35em;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+
+.prose pre {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.prose pre.mermaid {
+  display: flex;
+  justify-content: center;
+  background: var(--surface);
+  font-family: var(--font-sans);
+}
+
+.prose pre.mermaid:not([data-processed]) {
+  color: var(--text-muted);
+}
+
+.prose table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.prose :where(th, td) {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose th {
+  background: var(--surface-sunken);
+  font-weight: 600;
+}
+
+.prose hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin-block: var(--space-6);
+}
+
+.prose .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-block: var(--space-2);
+}
+
+.prose :where(.chart, .widget) {
+  margin-inline: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.prose :where(.chart, .widget) figcaption {
+  margin-top: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.widget-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+  margin-bottom: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.widget-controls label {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 12rem;
+  flex: 1;
+}
+
+.widget-controls output {
+  font-family: var(--font-mono);
+  color: var(--accent);
+}
+
+.widget-controls input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}
