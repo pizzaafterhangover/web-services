@@ -1,0 +1,94 @@
+---
+import { categories } from '../data/categories';
+import { formatDate, lastTouched, url, type Note } from '../lib/notes';
+
+interface Props {
+  notes: Note[];
+}
+
+const { notes } = Astro.props;
+const rows = categories.map((category) => {
+  const inCategory = notes.filter((n) => n.data.category === category.id);
+  return { category, count: inCategory.length, latest: inCategory[0] && lastTouched(inCategory[0]) };
+});
+---
+
+<ul class="index">
+  {
+    rows.map(({ category, count, latest }) => (
+      <li style={`--cat: var(--cat-${category.color})`}>
+        <a href={url(`categories/${category.id}/`)}>
+          <span class="name">{category.name}</span>
+          <span class="count">
+            {count}
+            <span class="visually-hidden">개의 글</span>
+          </span>
+          <span class="desc">{category.description}</span>
+          <span class="latest">{latest ? `최근 ${formatDate(latest)}` : '아직 글 없음'}</span>
+        </a>
+      </li>
+    ))
+  }
+</ul>
+
+<style>
+  .index {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  @media (min-width: 48rem) {
+    .index {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  a {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--space-1) var(--space-3);
+    height: 100%;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--cat);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  a:hover {
+    border-color: var(--border-strong);
+    border-left-color: var(--cat);
+  }
+
+  a:hover .name {
+    text-decoration: underline;
+  }
+
+  .name {
+    font-weight: 700;
+  }
+
+  .count {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+
+  .desc {
+    grid-column: 1 / -1;
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+  }
+
+  .latest {
+    grid-column: 1 / -1;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+  }
+</style>

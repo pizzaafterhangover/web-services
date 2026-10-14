@@ -1,0 +1,65 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import NoteList from '../../components/NoteList.astro';
+import EmptyState from '../../components/EmptyState.astro';
+import { categories, type Category } from '../../data/categories';
+import { getNotes, url } from '../../lib/notes';
+
+export function getStaticPaths() {
+  return categories.map((category) => ({ params: { id: category.id }, props: { category } }));
+}
+
+interface Props {
+  category: Category;
+}
+
+const { category } = Astro.props;
+const notes = (await getNotes()).filter((n) => n.data.category === category.id);
+---
+
+<BaseLayout title={category.name} description={category.description}>
+  <nav aria-label="현재 위치" class="crumbs">
+    <a href={url('/')}>분류</a>
+    <span aria-hidden="true">/</span>
+  </nav>
+  <header class="head" style={`--cat: var(--cat-${category.color})`}>
+    <h1>{category.name}</h1>
+    <p>{category.description}</p>
+  </header>
+
+  <h2 class="section-title">
+    글 목록 <small>{notes.length}개</small>
+  </h2>
+  {
+    notes.length > 0 ? (
+      <NoteList notes={notes} showCategory={false} />
+    ) : (
+      <EmptyState title="이 분류에는 아직 글이 없습니다">공부한 내용을 정리하면 여기에 추가됩니다.</EmptyState>
+    )
+  }
+</BaseLayout>
+
+<style>
+  .crumbs {
+    display: flex;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+
+  .head {
+    margin: var(--space-2) 0 var(--space-6);
+    padding-left: var(--space-4);
+    border-left: 4px solid var(--cat);
+  }
+
+  h1 {
+    margin: 0;
+    font-size: var(--text-2xl);
+  }
+
+  .head p {
+    margin: var(--space-1) 0 0;
+    color: var(--text-muted);
+  }
+</style>

@@ -1,0 +1,35 @@
+---
+import { getCategory, type CategoryId } from '../data/categories';
+import { url } from '../lib/notes';
+
+interface Props {
+  id: CategoryId;
+  link?: boolean;
+}
+
+const { id, link = true } = Astro.props;
+const category = getCategory(id);
+const Tag = link ? 'a' : 'span';
+---
+
+<Tag class="badge" href={link ? url(`categories/${id}/`) : undefined}>
+  <span class="swatch" style={`background: var(--cat-${category.color})`} aria-hidden="true"></span>
+  {category.name}
+</Tag>
+
+<style>
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--text);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  a.badge:hover {
+    text-decoration: underline;
+  }
+</style>

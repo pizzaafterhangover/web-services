@@ -1,0 +1,28 @@
+---
+interface Props {
+  status: '학습중' | '정리완료';
+}
+
+const { status } = Astro.props;
+---
+
+<span class:list={['status', { done: status === '정리완료' }]}>{status}</span>
+
+<style>
+  .status {
+    display: inline-block;
+    padding: 0 var(--space-2);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    line-height: 1.6;
+    white-space: nowrap;
+  }
+
+  .done {
+    border-style: solid;
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+</style>

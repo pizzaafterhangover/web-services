@@ -1,0 +1,47 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import NoteList from '../../components/NoteList.astro';
+import { getNotes, url, type Note } from '../../lib/notes';
+
+export async function getStaticPaths() {
+  const notes = await getNotes();
+  const tags = [...new Set(notes.flatMap((n) => n.data.tags))];
+  return tags.map((tag) => ({
+    params: { tag },
+    props: { tag, notes: notes.filter((n) => n.data.tags.includes(tag)) },
+  }));
+}
+
+interface Props {
+  tag: string;
+  notes: Note[];
+}
+
+const { tag, notes } = Astro.props;
+---
+
+<BaseLayout title={`#${tag}`}>
+  <nav aria-label="현재 위치" class="crumbs">
+    <a href={url('tags/')}>태그</a>
+    <span aria-hidden="true">/</span>
+  </nav>
+  <h1>#{tag}</h1>
+  <h2 class="section-title">
+    글 목록 <small>{notes.length}개</small>
+  </h2>
+  <NoteList notes={notes} />
+</BaseLayout>
+
+<style>
+  .crumbs {
+    display: flex;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+
+  h1 {
+    margin: var(--space-2) 0 var(--space-6);
+    font-size: var(--text-2xl);
+  }
+</style>

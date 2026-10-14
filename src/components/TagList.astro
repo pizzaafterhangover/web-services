@@ -1,0 +1,43 @@
+---
+import { url } from '../lib/notes';
+
+interface Props {
+  tags: string[];
+}
+
+const { tags } = Astro.props;
+---
+
+{
+  tags.length > 0 && (
+    <ul class="tags" aria-label="태그">
+      {tags.map((tag) => (
+        <li>
+          <a href={url(`tags/${encodeURIComponent(tag)}/`)}>#{tag}</a>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+<style>
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--text-xs);
+  }
+
+  a {
+    color: var(--text-muted);
+    text-decoration: none;
+  }
+
+  a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+</style>
