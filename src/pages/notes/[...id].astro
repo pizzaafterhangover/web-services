@@ -1,0 +1,24 @@
+---
+import { render } from 'astro:content';
+import NoteLayout from '../../layouts/NoteLayout.astro';
+import Callout from '../../components/mdx/Callout.astro';
+import Figure from '../../components/mdx/Figure.astro';
+import Video from '../../components/mdx/Video.astro';
+import { getNotes, type Note } from '../../lib/notes';
+
+export async function getStaticPaths() {
+  const notes = await getNotes();
+  return notes.map((note) => ({ params: { id: note.id }, props: { note } }));
+}
+
+interface Props {
+  note: Note;
+}
+
+const { note } = Astro.props;
+const { Content, headings } = await render(note);
+---
+
+<NoteLayout note={note} headings={headings}>
+  <Content components={{ Callout, Figure, Video }} />
+</NoteLayout>

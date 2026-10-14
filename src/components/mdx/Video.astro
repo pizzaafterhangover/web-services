@@ -1,0 +1,51 @@
+---
+interface Props {
+  src: string;
+  caption?: string;
+  poster?: string;
+}
+
+const { src, caption, poster } = Astro.props;
+// YouTube 링크면 embed로, 아니면 직접 재생한다.
+const youtube = src.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([\w-]{11})/)?.[1];
+---
+
+<figure>
+  {
+    youtube ? (
+      <iframe
+        src={`https://www.youtube-nocookie.com/embed/${youtube}`}
+        title={caption ?? '영상'}
+        loading="lazy"
+        allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen
+      />
+    ) : (
+      <video src={src} poster={poster} controls preload="metadata" />
+    )
+  }
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>
+
+<style>
+  figure {
+    margin-inline: 0;
+  }
+
+  iframe,
+  video {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface-sunken);
+  }
+
+  figcaption {
+    margin-top: var(--space-2);
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    text-align: center;
+  }
+</style>

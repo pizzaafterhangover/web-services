@@ -1,0 +1,119 @@
+---
+import 'katex/dist/katex.min.css';
+import '../styles/prose.css';
+import type { MarkdownHeading } from 'astro';
+import BaseLayout from './BaseLayout.astro';
+import CategoryBadge from '../components/CategoryBadge.astro';
+import StatusLabel from '../components/StatusLabel.astro';
+import TagList from '../components/TagList.astro';
+import Toc from '../components/Toc.astro';
+import { formatDate, url, type Note } from '../lib/notes';
+
+interface Props {
+  note: Note;
+  headings: MarkdownHeading[];
+}
+
+const { note, headings } = Astro.props;
+const { title, description, category, tags, date, updated, status } = note.data;
+---
+
+<BaseLayout title={title} description={description}>
+  <nav aria-label="현재 위치" class="crumbs">
+    <a href={url('/')}>분류</a>
+    <span aria-hidden="true">/</span>
+    <CategoryBadge id={category} />
+  </nav>
+
+  <article>
+    <header class="head">
+      <h1>{title}</h1>
+      <p class="desc">{description}</p>
+      <div class="meta">
+        <StatusLabel status={status} />
+        <span>작성 <time datetime={date.toISOString()}>{formatDate(date)}</time></span>
+        {updated && <span>수정 <time datetime={updated.toISOString()}>{formatDate(updated)}</time></span>}
+      </div>
+      <TagList tags={tags} />
+    </header>
+
+    <div class="layout">
+      <div class="prose">
+        <slot />
+      </div>
+      <aside aria-label="목차">
+        <Toc headings={headings} />
+      </aside>
+    </div>
+  </article>
+</BaseLayout>
+
+<script>
+  import '../scripts/mermaid';
+
+  // 넓은 화면에서는 목차를 펼쳐 두고, 모바일에서는 접어 둔다.
+  const toc = document.querySelector<HTMLDetailsElement>('.toc');
+  if (toc && window.matchMedia('(min-width: 64rem)').matches) toc.open = true;
+</script>
+
+<style>
+  .crumbs {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-5);
+    margin-top: var(--space-3);
+  }
+
+  aside {
+    grid-row: 1;
+  }
+
+  @media (min-width: 64rem) {
+    .layout {
+      grid-template-columns: minmax(0, var(--content-width)) 14rem;
+      justify-content: space-between;
+    }
+
+    aside {
+      grid-row: auto;
+      position: sticky;
+      top: var(--space-5);
+      align-self: start;
+    }
+  }
+
+  .head {
+    max-width: var(--content-width);
+    margin-top: var(--space-3);
+    padding-bottom: var(--space-4);
+    border-bottom: 1px solid var(--border-strong);
+  }
+
+  h1 {
+    margin: 0;
+    font-size: var(--text-2xl);
+  }
+
+  .desc {
+    margin: var(--space-2) 0 var(--space-3);
+    color: var(--text-muted);
+  }
+
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-4);
+    margin-bottom: var(--space-2);
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+  }
+</style>

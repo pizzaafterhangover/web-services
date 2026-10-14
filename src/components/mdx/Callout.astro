@@ -1,0 +1,50 @@
+---
+interface Props {
+  type?: 'def' | 'key' | 'warn' | 'lab';
+  title?: string;
+}
+
+const labels = { def: '정의', key: '핵심', warn: '주의', lab: '실험 메모' };
+const { type = 'key', title } = Astro.props;
+---
+
+<aside class="callout" style={`--tone: var(--callout-${type})`}>
+  <p class="label">
+    {labels[type]}{title && <span class="title"> · {title}</span>}
+  </p>
+  <div class="body"><slot /></div>
+</aside>
+
+<style>
+  .callout {
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--tone);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+  }
+
+  .label {
+    margin: 0 0 var(--space-1);
+    color: var(--tone);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  .title {
+    color: var(--text);
+  }
+
+  .body > :global(:first-child) {
+    margin-top: 0;
+  }
+
+  .body > :global(:last-child) {
+    margin-bottom: 0;
+  }
+
+  .body > :global(* + *) {
+    margin-top: var(--space-2);
+  }
+</style>
