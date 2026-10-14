@@ -8,6 +8,7 @@ import StatusLabel from '../components/StatusLabel.astro';
 import TagList from '../components/TagList.astro';
 import Toc from '../components/Toc.astro';
 import { formatDate, url, type Note } from '../lib/notes';
+import { getCategory } from '../data/categories';
 
 interface Props {
   note: Note;
@@ -16,12 +17,21 @@ interface Props {
 
 const { note, headings } = Astro.props;
 const { title, description, category, tags, date, updated, status } = note.data;
+const { parent } = getCategory(category);
 ---
 
 <BaseLayout title={title} description={description}>
   <nav aria-label="현재 위치" class="crumbs">
     <a href={url('/')}>분류</a>
     <span aria-hidden="true">/</span>
+    {
+      parent && (
+        <>
+          <CategoryBadge id={parent} />
+          <span aria-hidden="true">/</span>
+        </>
+      )
+    }
     <CategoryBadge id={category} />
   </nav>
 

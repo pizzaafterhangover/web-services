@@ -14,6 +14,7 @@
 
   --cat-math: #3d5aa8;
   --cat-robotics: #a5552a;
+  --cat-ros2: #4a5d70;
   --cat-perception: #7b4ea3;
   --cat-slam: #0d6767;
   --cat-control: #9a7a12;
@@ -66,6 +67,7 @@
 
     --cat-math: #8aa3e6;
     --cat-robotics: #e39a6f;
+    --cat-ros2: #9db3c8;
     --cat-perception: #b993dc;
     --cat-slam: #5cc4be;
     --cat-control: #d9b94c;
@@ -94,6 +96,7 @@
 
   --cat-math: #8aa3e6;
   --cat-robotics: #e39a6f;
+  --cat-ros2: #9db3c8;
   --cat-perception: #b993dc;
   --cat-slam: #5cc4be;
   --cat-control: #d9b94c;

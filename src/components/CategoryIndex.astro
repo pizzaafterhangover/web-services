@@ -1,31 +1,51 @@
 ---
-import { categories } from '../data/categories';
+import { categoryWithChildren, childCategories, topLevelCategories, type Category } from '../data/categories';
 import { formatDate, lastTouched, url, type Note } from '../lib/notes';
 
 interface Props {
   notes: Note[];
+  /** 보여줄 분류. 기본은 최상위 분류 전체. */
+  items?: readonly Category[];
 }
 
-const { notes } = Astro.props;
-const rows = categories.map((category) => {
-  const inCategory = notes.filter((n) => n.data.category === category.id);
-  return { category, count: inCategory.length, latest: inCategory[0] && lastTouched(inCategory[0]) };
+const { notes, items = topLevelCategories } = Astro.props;
+const countIn = (category: Category) => {
+  const ids: string[] = categoryWithChildren(category.id);
+  return notes.filter((n) => ids.includes(n.data.category));
+};
+const rows = items.map((category) => {
+  const inCategory = countIn(category);
+  const children = childCategories(category.id).map((child) => ({ child, count: countIn(child).length }));
+  return { category, children, count: inCategory.length, latest: inCategory[0] && lastTouched(inCategory[0]) };
 });
 ---
 
 <ul class="index">
   {
-    rows.map(({ category, count, latest }) => (
+    rows.map(({ category, children, count, latest }) => (
       <li style={`--cat: var(--cat-${category.color})`}>
-        <a href={url(`categories/${category.id}/`)}>
+        <a class="main" href={url(`categories/${category.id}/`)}>
           <span class="name">{category.name}</span>
           <span class="count">
             {count}
             <span class="visually-hidden">개의 글</span>
           </span>
-          <span class="desc">{category.description}</span>
-          <span class="latest">{latest ? `최근 ${formatDate(latest)}` : '아직 글 없음'}</span>
         </a>
+        <span class="desc">{category.description}</span>
+        {children.length > 0 && (
+          <ul class="children" aria-label={`${category.name} 하위 분류`}>
+            {children.map(({ child, count }) => (
+              <li style={`--cat: var(--cat-${child.color})`}>
+                <a href={url(`categories/${child.id}/`)}>{child.name}</a>
+                <span class="count">
+                  {count}
+                  <span class="visually-hidden">개의 글</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <span class="latest">{latest ? `최근 ${formatDate(latest)}` : '아직 글 없음'}</span>
       </li>
     ))
   }
@@ -47,26 +67,38 @@ const rows = categories.map((category) => {
     }
   }
 
-  a {
+  /* 카드 전체가 .main 링크로 동작하고, 하위 분류 링크만 그 위에 올라온다. */
+  .index > li {
+    position: relative;
     display: grid;
-    grid-template-columns: 1fr auto;
-    gap: var(--space-1) var(--space-3);
-    height: 100%;
+    gap: var(--space-1);
     padding: var(--space-3) var(--space-4);
     border: 1px solid var(--border);
     border-left: 4px solid var(--cat);
     border-radius: var(--radius-sm);
     background: var(--surface);
-    color: var(--text);
-    text-decoration: none;
   }
 
-  a:hover {
+  .index > li:hover {
     border-color: var(--border-strong);
     border-left-color: var(--cat);
   }
 
-  a:hover .name {
+  .main {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  .main::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+
+  .main:hover .name {
     text-decoration: underline;
   }
 
@@ -81,13 +113,35 @@ const rows = categories.map((category) => {
   }
 
   .desc {
-    grid-column: 1 / -1;
     color: var(--text-muted);
     font-size: var(--text-sm);
   }
 
+  .children {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: var(--space-1);
+    margin: var(--space-1) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .children li {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding-left: var(--space-3);
+    border-left: 3px solid var(--cat);
+    font-size: var(--text-sm);
+  }
+
+  .children a {
+    color: var(--text);
+    font-weight: 600;
+  }
+
   .latest {
-    grid-column: 1 / -1;
     color: var(--text-muted);
     font-size: var(--text-xs);
   }

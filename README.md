@@ -41,6 +41,7 @@ npm run build    # dist/ 생성
 ## 새 분류 추가
 
 `src/data/categories.ts` 배열에 한 줄을 추가하고, `src/styles/tokens.css`에 `--cat-<color>` 색을 라이트/다크 각각 정의합니다.
+하위 분류로 만들려면 그 줄에 `parent: '<상위 분류 id>'`를 넣습니다(예: `slam`은 `ros2`의 하위 분류). 상위 분류 페이지에는 하위 분류의 글도 함께 나옵니다.
 
 ## 배포
 
