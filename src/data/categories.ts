@@ -7,6 +7,7 @@ const definitions = [
   { id: 'ros2', name: 'ROS 2', description: '개발환경, 패키지와 빌드, ROS 2 기반 실습', color: 'ros2' },
   { id: 'perception', name: '인지', description: '카메라·라이다 센서, 비전, 센서 융합', color: 'perception' },
   { id: 'slam', name: 'SLAM / 위치추정', description: '지도 작성, 위치 추정, 루프 클로저', color: 'slam', parent: 'ros2' },
+  { id: 'nav2', name: 'Nav2 / 자율주행', description: '위치 추정(AMCL), 경로 계획, 경로 추종, Costmap', color: 'nav2', parent: 'ros2' },
   { id: 'control', name: '제어', description: 'PID, MPC, 경로 계획과 추종', color: 'control' },
   { id: 'learning', name: '학습', description: '강화학습, 모방학습, VLA 모델', color: 'learning' },
   { id: 'simulation', name: '시뮬레이션', description: 'Gazebo, Isaac Sim, sim-to-real', color: 'simulation' },
