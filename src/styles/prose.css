@@ -142,3 +142,225 @@
   width: 100%;
   accent-color: var(--accent);
 }
+
+/* RosGraph: ROS 2 노드·토픽 구조도 */
+.ros-graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.ros-graph-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.ros-graph-legend .swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.ros-graph-legend .line {
+  width: 22px;
+  border-top: 2px solid var(--text-muted);
+}
+
+.ros-graph-legend .line.action {
+  border-top-style: dashed;
+}
+
+.ros-graph-legend .line.hardware {
+  border-top-style: dotted;
+}
+
+/* 좁은 화면에서는 글자가 너무 작아지지 않게 최소 폭을 두고 가로로 스크롤한다. */
+.ros-graph-scroll {
+  overflow-x: auto;
+}
+
+.ros-graph svg {
+  display: block;
+  width: 100%;
+  min-width: 680px;
+  height: auto;
+  font-family: var(--font-sans);
+}
+
+.ros-graph :where(.node, .edge, .bus) {
+  cursor: pointer;
+  outline: none;
+}
+
+.ros-graph .node .box {
+  fill: var(--surface);
+  stroke: var(--border-strong);
+  stroke-width: 1.2;
+}
+
+.ros-graph .node.hardware .box {
+  fill: var(--surface-sunken);
+  stroke-dasharray: 4 3;
+}
+
+.ros-graph .node .stripe {
+  fill: var(--node-color);
+}
+
+.ros-graph .node .label {
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  font-weight: 700;
+  fill: var(--text);
+}
+
+.ros-graph .node .sublabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  fill: var(--text-muted);
+}
+
+.ros-graph .node .role {
+  font-size: 13px;
+  fill: var(--text-muted);
+}
+
+.ros-graph .node.is-active .box,
+.ros-graph .bus.is-active rect {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+
+.ros-graph :where(.node, .bus):focus-visible :where(.box, rect) {
+  stroke: var(--focus);
+  stroke-width: 3;
+}
+
+.ros-graph .edge .hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14;
+}
+
+.ros-graph .edge .stroke {
+  fill: none;
+  stroke: var(--text-muted);
+  stroke-width: 1.6;
+}
+
+.ros-graph .edge.action .stroke {
+  stroke-dasharray: 6 4;
+}
+
+.ros-graph .edge.hardware .stroke {
+  stroke-dasharray: 2 4;
+}
+
+.ros-graph .edge:is(:hover, :focus-visible) .stroke {
+  stroke: var(--text);
+  stroke-width: 2.4;
+}
+
+.ros-graph .edge.is-active .stroke {
+  stroke: var(--accent);
+  stroke-width: 2.6;
+}
+
+.ros-graph .arrow-head.idle {
+  fill: var(--text-muted);
+}
+
+.ros-graph .arrow-head.on {
+  fill: var(--accent);
+}
+
+.ros-graph .has-selection .edge:not(.is-active) {
+  opacity: 0.3;
+}
+
+.ros-graph .has-selection .node:not(.is-active) {
+  opacity: 0.55;
+}
+
+.ros-graph .group rect {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-dasharray: 5 4;
+}
+
+.ros-graph .group text {
+  font-size: 12px;
+  font-weight: 700;
+  fill: var(--text-muted);
+}
+
+.ros-graph .bus rect {
+  fill: var(--surface-sunken);
+  stroke: var(--border-strong);
+}
+
+.ros-graph .bus text {
+  font-size: 13px;
+  font-weight: 600;
+  fill: var(--text);
+}
+
+.ros-graph-detail {
+  min-height: 4rem;
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  font-size: var(--text-sm);
+}
+
+.ros-graph-detail :where(p, ul) {
+  margin: 0 0 var(--space-2);
+}
+
+.ros-graph-detail h4 {
+  margin: 0 0 var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+}
+
+.ros-graph-detail h4 .sub {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.ros-graph-detail h5 {
+  margin: var(--space-3) 0 var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.ros-graph-detail dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: 0 0 var(--space-2);
+}
+
+.ros-graph-detail dt {
+  color: var(--text-muted);
+}
+
+.ros-graph-detail dd {
+  margin: 0;
+}
+
+.ros-graph-detail .note {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.ros-graph-detail .hint {
+  color: var(--text-muted);
+}

@@ -1,0 +1,92 @@
+---
+title: 팀NZ2 ROS 2 노드·토픽 구조도
+description: RGB 퍽을 선반에서 선반으로 옮기는 모바일 매니퓰레이터(팀NZ2)의 ROS 2 노드와 토픽 구성. 제안 초안.
+category: project
+tags: [ROS 2, 팀NZ2, 시스템 구조, 모바일 매니퓰레이터]
+date: 2026-10-19
+status: 학습중
+draft: false
+---
+
+import RosGraph from '../../../components/widgets/RosGraph';
+
+export const nodes = [
+  { id: 'hw-realsense', label: 'RealSense', lines: ['카메라'], role: 'RealSense 카메라 (컬러·depth)', kind: 'hardware', color: 'ros2', x: 12, y: 48, w: 118 },
+  { id: 'hw-opencr2', label: 'OpenCR #2', lines: ['스월브용', 'ID 1~8'], role: 'OpenCR 1.0. 스월브 다이나믹셀 ID 1~8 담당', kind: 'hardware', color: 'ros2', x: 12, y: 290, w: 118 },
+  { id: 'hw-opencr1', label: 'OpenCR #1', lines: ['팔용', 'ID 11~16'], role: 'OpenCR 1.0. 팔 다이나믹셀 ID 11~16 담당', kind: 'hardware', color: 'ros2', x: 12, y: 410, w: 118 },
+  { id: 'realsense2_camera', label: 'realsense2_camera', lines: ['컬러·depth 영상 발행'], role: '컬러·depth 영상 발행', kind: 'node', owner: '인지', origin: '기존 패키지', color: 'perception', x: 170, y: 48, w: 222 },
+  { id: 'puck_detector', label: 'puck_detector', lines: ['퍽 색·형상·자세 인식,', '로봇 기준 3D 위치 계산'], role: '퍽 색·형상·자세 인식, 로봇 기준 3D 위치 계산', kind: 'node', owner: '인지', origin: '직접 작성', color: 'perception', x: 440, y: 48, w: 190 },
+  { id: 'visual_slam', label: 'visual_slam', sublabel: '(cuVSLAM)', lines: ['로봇 위치 추정'], role: '로봇 위치 추정', kind: 'node', owner: '인지', origin: '기존 패키지', note: '11/10 범위 미정', color: 'perception', x: 676, y: 48, w: 196 },
+  { id: 'mission_planner', label: 'mission_planner', lines: ['상태 머신, 옮기는 순서,', '이동·집기 지시'], role: '상태 머신, 옮기는 순서, 이동·집기 지시', kind: 'node', owner: '판단', origin: '직접 작성', color: 'nav2', x: 440, y: 160, w: 190 },
+  { id: 'swerve_controller', label: 'swerve_controller', lines: ['속도 명령 → 바퀴 8개 명령,', '주행 거리 계산'], role: '속도 명령 → 바퀴 8개(ID 1~8) 명령, 주행 거리 계산. 스월브용 OpenCR과 통신', kind: 'node', owner: '제어', origin: '직접 작성', color: 'control', group: 'control', x: 170, y: 290, w: 222 },
+  { id: 'ros2_control', label: 'ros2_control', sublabel: '+ dynamixel_hardware_interface', lines: ['팔 관절(ID 11~16) 구동'], role: '팔 관절(ID 11~16) 구동. 팔용 OpenCR과 통신', kind: 'node', owner: '제어', origin: '기존 패키지', color: 'control', group: 'control', x: 170, y: 410, w: 222 },
+  { id: 'robot_state_publisher', label: 'robot_state_publisher', lines: ['URDF로 부품 좌표(TF) 발행'], role: 'URDF로 각 부품 좌표(TF) 발행', kind: 'node', owner: '테크리드', origin: '기존 패키지', color: 'project', x: 676, y: 290, w: 196 },
+  { id: 'move_group', label: 'move_group', sublabel: '(MoveIt)', lines: ['팔 경로 계획(IK)'], role: '팔 경로 계획(IK)', kind: 'node', owner: '판단', origin: '기존 패키지', color: 'nav2', x: 440, y: 410, w: 190 },
+];
+
+export const groups = [{ id: 'control', label: '제어 노드', x: 158, y: 262, w: 246, h: 230 }];
+
+export const bus = { id: 'all', label: '모든 노드', x: 158, y: 520, w: 714, h: 44 };
+
+export const edges = [
+  { id: 'hw-camera', from: 'hw-realsense', to: 'realsense2_camera', kind: 'hardware', topics: [], points: [[130, 83], [170, 83]] },
+  {
+    id: 'camera-images', from: 'realsense2_camera', to: 'puck_detector', kind: 'topic', points: [[392, 83], [440, 83]],
+    topics: [
+      { name: '/camera/camera/color/image_raw', type: 'sensor_msgs/Image' },
+      { name: '/camera/camera/aligned_depth_to_color/image_raw', type: 'sensor_msgs/Image' },
+      { name: '/camera/camera/color/camera_info', type: 'sensor_msgs/CameraInfo', note: '3D 복원용' },
+    ],
+  },
+  { id: 'pucks', from: 'puck_detector', to: 'mission_planner', kind: 'topic', points: [[535, 118], [535, 160]], topics: [{ name: '/perception/pucks', type: 'vision_msgs/Detection3DArray', note: '퍽 종류는 class_id, 위치는 pose' }] },
+  { id: 'cmd-vel', from: 'mission_planner', to: 'swerve_controller', kind: 'topic', points: [[440, 190], [412, 190], [412, 315], [392, 315]], topics: [{ name: '/cmd_vel', type: 'geometry_msgs/Twist', note: '스월브라 linear.y도 사용' }] },
+  { id: 'odom', from: 'swerve_controller', to: 'mission_planner', kind: 'topic', points: [[392, 340], [426, 340], [426, 205], [440, 205]], topics: [{ name: '/odom', type: 'nav_msgs/Odometry' }] },
+  { id: 'joint-states-rsp', from: 'control', to: 'robot_state_publisher', kind: 'topic', points: [[404, 352], [676, 352]], topics: [{ name: '/joint_states', type: 'sensor_msgs/JointState' }] },
+  { id: 'joint-states-moveit', from: 'control', to: 'move_group', kind: 'topic', points: [[404, 432], [440, 432]], topics: [{ name: '/joint_states', type: 'sensor_msgs/JointState' }] },
+  { id: 'arm-trajectory', from: 'move_group', to: 'ros2_control', kind: 'action', points: [[440, 462], [392, 462]], topics: [{ name: '팔 명령', type: 'control_msgs/FollowJointTrajectory', note: '액션' }], note: '받는 쪽은 ros2_control의 팔 컨트롤러다.' },
+  { id: 'hw-swerve', from: 'swerve_controller', to: 'hw-opencr2', kind: 'hardware', both: true, topics: [], points: [[170, 325], [130, 325]] },
+  { id: 'hw-arm', from: 'ros2_control', to: 'hw-opencr1', kind: 'hardware', both: true, topics: [], points: [[170, 445], [130, 445]] },
+  {
+    id: 'tf', from: 'robot_state_publisher', to: 'all', kind: 'topic', points: [[774, 360], [774, 520]],
+    topics: [
+      { name: '/tf', type: 'tf2_msgs/TFMessage' },
+      { name: '/tf_static', type: 'tf2_msgs/TFMessage' },
+    ],
+  },
+  { id: 'mission-status', from: 'mission_planner', to: 'all', kind: 'topic', points: [[630, 180], [658, 180], [658, 520]], topics: [{ name: '/mission/status', type: 'std_msgs/String', note: '현재 상태' }] },
+  { id: 'diagnostics', from: 'all', to: 'mission_planner', kind: 'topic', points: [[644, 520], [644, 200], [630, 200]], topics: [{ name: '/diagnostics', type: 'diagnostic_msgs/DiagnosticArray', note: '장애 감지' }] },
+];
+
+<Callout type="warn" title="제안 초안 (2026-10-19)">
+  킥오프 회의에서 확정 예정이다. 노드·토픽 이름과 메시지 형식은 바뀔 수 있다.
+</Callout>
+
+## 개요
+
+KANT PA1 LV2 프로젝트2 **팀NZ2**의 로봇은 RGB 퍽을 선반에서 선반으로 옮기는 모바일 매니퓰레이터다.
+
+| 항목 | 내용 |
+| --- | --- |
+| 차체 | 스월브 4모듈 |
+| 팔 | OpenMANIPULATOR-X 개조 (손목 롤 추가) |
+| 연산 | Jetson Orin Nano Developer Kit |
+| 구동 보드 | OpenCR 1.0 2대. #1은 팔(다이나믹셀 ID 11~16), #2는 스월브(ID 1~8) |
+| 역할 | 인지 · 제어 · 판단(팀장, 테크리드) |
+
+## 구조도
+
+<RosGraph
+  client:visible
+  nodes={nodes}
+  edges={edges}
+  groups={groups}
+  bus={bus}
+  width={884}
+  height={580}
+/>
+
+## 공통 약속
+
+- 단위는 m, rad, s만 쓴다 (REP-103).
+- 퍽 위치는 로봇 기준 좌표로 다루고, 좌표 변환은 TF로 한다.
+- 그리퍼 카메라·거리 센서·신호등·QR 토픽은 센서 연결 방식과 대회 규칙이 정해진 뒤 추가한다.
