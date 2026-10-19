@@ -39,7 +39,7 @@ export const nodes = [
   {
     id: 'rs-grip', label: 'realsense2_camera', sublabel: '(그리퍼)', lines: ['두 번째 인스턴스'],
     role: '그리퍼 RealSense 영상 발행 (손 카메라). realsense2_camera의 두 번째 인스턴스',
-    kind: 'node', owner: '인지(제안)', origin: '기존 패키지', note: '손 카메라 토픽 이름 [미정]', color: 'perception', x: 148, y: 138, w: 165,
+    kind: 'node', owner: '공용', origin: '기존 패키지', note: '손 카메라 토픽 이름 [미정]', color: 'project', x: 148, y: 138, w: 165,
   },
   {
     id: 'perception', label: 'perception', lines: ['YOLO · 경광등 · 퍽 지도', '손 카메라 정렬 · QR'],
@@ -54,7 +54,7 @@ export const nodes = [
   {
     id: 'rs-front', label: 'realsense2_camera', sublabel: '(전면 D435)', lines: ['컬러 · depth · 점구름'],
     role: 'D435 컬러, 정렬된 depth, 포인트클라우드. 640×480, 15-30 fps, align_depth.enable:=true',
-    kind: 'node', owner: '인지(제안)', origin: '기존 패키지', color: 'perception', x: 549, y: 138, w: 165,
+    kind: 'node', owner: '공용', origin: '기존 패키지', color: 'project', x: 549, y: 138, w: 165,
   },
   { id: 'hw-cam-front', label: 'RealSense', lines: ['전면 (D435)'], role: 'RealSense D435 (차체 전면, 높이 약 180 mm, 기울기 미정)', kind: 'hardware', color: 'ros2', x: 742, y: 138, w: 100 },
   { id: 'hw-range', label: '거리 센서', lines: ['그리퍼', '연결 미정'], role: '그리퍼 거리 센서. 집기 직전 거리 확인. 연결(OpenCR / Jetson) 미정', kind: 'hardware', color: 'ros2', x: 20, y: 246, w: 100 },
@@ -82,7 +82,7 @@ export const nodes = [
   {
     id: 'ekf', mode: 'b', label: 'robot_localization', sublabel: '(EKF) 후보 (나)', lines: ['휠 + IMU 융합, map → odom'],
     role: '휠 /odom + /imu 융합, odom → base_link TF의 유일한 발행자. map → odom은 출발 자세 기준 고정값(static_transform_publisher), 드리프트가 크면 AMCL로 교체',
-    kind: 'node', owner: '인지(제안)', origin: '기존 패키지', color: 'perception', x: 662, y: 246, w: 200,
+    kind: 'node', owner: '인지', origin: '기존 패키지', color: 'perception', x: 662, y: 246, w: 200,
   },
   {
     id: 'twist_mux', label: 'twist_mux', sublabel: '(선택)', lines: ['수동 조작 테스트용'],
@@ -117,7 +117,7 @@ export const nodes = [
   {
     id: 'robot_state_publisher', label: 'robot_state_publisher', lines: ['URDF로 TF 발행'],
     role: 'URDF + /joint_states로 TF 발행. 카메라·팔 장착 위치와 기울기는 여기서만 관리',
-    kind: 'node', owner: '테크리드(제안)', origin: '기존 패키지', color: 'project', x: 428, y: 578, w: 200,
+    kind: 'node', owner: '공용', origin: '기존 패키지', color: 'project', x: 428, y: 578, w: 200,
   },
   { id: 'hw-opencr2', label: 'OpenCR #2', lines: ['스월브 8개 (ID 1-8)'], role: 'OpenCR 1.0. 스월브 다이나믹셀 ID 1-8', kind: 'hardware', color: 'ros2', x: 662, y: 578, w: 200 },
 ];
@@ -248,7 +248,7 @@ KANT PA1 LV2 프로젝트2 **팀NZ2**의 로봇은 RGB 퍽을 선반에서 선�
 | 판단 | 임무 상태 머신, 순서, 주행 목표, 팔 동작 계획(IK) |
 | 제어 | OpenCR 2대, 스월브 구동, 팔 관절 구동(받은 각도대로 실행), 안전 정지, 전원·배선 |
 
-구조도의 "(제안)"은 아직 담당이 확정되지 않은 노드다.
+구조도의 "(제안)"은 아직 담당이 확정되지 않은 노드다. 카메라 드라이버와 robot_state_publisher는 "공용"이며 한 곳에서만 실행한다.
 
 ## 구조도
 
