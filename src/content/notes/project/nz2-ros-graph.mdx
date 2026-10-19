@@ -12,14 +12,14 @@ import RosGraph from '../../../components/widgets/RosGraph';
 
 export const nodes = [
   { id: 'hw-realsense', label: 'RealSense', lines: ['카메라'], role: 'RealSense 카메라 (컬러·depth)', kind: 'hardware', color: 'ros2', x: 12, y: 48, w: 118 },
-  { id: 'hw-opencr2', label: 'OpenCR #2', lines: ['스월브용', 'ID 1~8'], role: 'OpenCR 1.0. 스월브 다이나믹셀 ID 1~8 담당', kind: 'hardware', color: 'ros2', x: 12, y: 290, w: 118 },
-  { id: 'hw-opencr1', label: 'OpenCR #1', lines: ['팔용', 'ID 11~16'], role: 'OpenCR 1.0. 팔 다이나믹셀 ID 11~16 담당', kind: 'hardware', color: 'ros2', x: 12, y: 410, w: 118 },
+  { id: 'hw-opencr2', label: 'OpenCR #2', lines: ['스월브용', 'ID 1-8'], role: 'OpenCR 1.0. 스월브 다이나믹셀 ID 1-8 담당', kind: 'hardware', color: 'ros2', x: 12, y: 290, w: 118 },
+  { id: 'hw-opencr1', label: 'OpenCR #1', lines: ['팔용', 'ID 11-16'], role: 'OpenCR 1.0. 팔 다이나믹셀 ID 11-16 담당', kind: 'hardware', color: 'ros2', x: 12, y: 410, w: 118 },
   { id: 'realsense2_camera', label: 'realsense2_camera', lines: ['컬러·depth 영상 발행'], role: '컬러·depth 영상 발행', kind: 'node', owner: '인지', origin: '기존 패키지', color: 'perception', x: 170, y: 48, w: 222 },
   { id: 'puck_detector', label: 'puck_detector', lines: ['퍽 색·형상·자세 인식,', '로봇 기준 3D 위치 계산'], role: '퍽 색·형상·자세 인식, 로봇 기준 3D 위치 계산', kind: 'node', owner: '인지', origin: '직접 작성', color: 'perception', x: 440, y: 48, w: 190 },
   { id: 'visual_slam', label: 'visual_slam', sublabel: '(cuVSLAM)', lines: ['로봇 위치 추정'], role: '로봇 위치 추정', kind: 'node', owner: '인지', origin: '기존 패키지', note: '11/10 범위 미정', color: 'perception', x: 676, y: 48, w: 196 },
   { id: 'mission_planner', label: 'mission_planner', lines: ['상태 머신, 옮기는 순서,', '이동·집기 지시'], role: '상태 머신, 옮기는 순서, 이동·집기 지시', kind: 'node', owner: '판단', origin: '직접 작성', color: 'nav2', x: 440, y: 160, w: 190 },
-  { id: 'swerve_controller', label: 'swerve_controller', lines: ['속도 명령 → 바퀴 8개 명령,', '주행 거리 계산'], role: '속도 명령 → 바퀴 8개(ID 1~8) 명령, 주행 거리 계산. 스월브용 OpenCR과 통신', kind: 'node', owner: '제어', origin: '직접 작성', color: 'control', x: 170, y: 290, w: 222 },
-  { id: 'ros2_control', label: 'ros2_control', sublabel: '+ dynamixel_hardware_interface', lines: ['팔 관절(ID 11~16) 구동'], role: '팔 관절(ID 11~16) 구동. 팔용 OpenCR과 통신', kind: 'node', owner: '제어', origin: '기존 패키지', color: 'control', x: 170, y: 410, w: 222 },
+  { id: 'swerve_controller', label: 'swerve_controller', lines: ['속도 명령 → 바퀴 8개 명령,', '주행 거리 계산'], role: '속도 명령 → 바퀴 8개(ID 1-8) 명령, 주행 거리 계산. 스월브용 OpenCR과 통신', kind: 'node', owner: '제어', origin: '직접 작성', color: 'control', x: 170, y: 290, w: 222 },
+  { id: 'ros2_control', label: 'ros2_control', sublabel: '+ dynamixel_hardware_interface', lines: ['팔 관절(ID 11-16) 구동'], role: '팔 관절(ID 11-16) 구동. 팔용 OpenCR과 통신', kind: 'node', owner: '제어', origin: '기존 패키지', color: 'control', x: 170, y: 410, w: 222 },
   { id: 'robot_state_publisher', label: 'robot_state_publisher', lines: ['URDF로 부품 좌표(TF) 발행'], role: 'URDF로 각 부품 좌표(TF) 발행', kind: 'node', owner: '테크리드', origin: '기존 패키지', color: 'project', x: 676, y: 290, w: 196 },
   { id: 'move_group', label: 'move_group', sublabel: '(MoveIt)', lines: ['팔 경로 계획(IK)'], role: '팔 경로 계획(IK)', kind: 'node', owner: '판단', origin: '기존 패키지', color: 'nav2', x: 440, y: 410, w: 190 },
 ];
@@ -81,7 +81,7 @@ KANT PA1 LV2 프로젝트2 **팀NZ2**의 로봇은 RGB 퍽을 선반에서 선�
 | 차체 | 스월브 4모듈 |
 | 팔 | OpenMANIPULATOR-X 개조 (손목 롤 추가) |
 | 연산 | Jetson Orin Nano Developer Kit |
-| 구동 보드 | OpenCR 1.0 2대. #1은 팔(다이나믹셀 ID 11~16), #2는 스월브(ID 1~8) |
+| 구동 보드 | OpenCR 1.0 2대. #1은 팔(다이나믹셀 ID 11-16), #2는 스월브(ID 1-8) |
 | 역할 | 인지 · 제어 · 판단(팀장, 테크리드) |
 
 ## 구조도
