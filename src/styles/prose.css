@@ -168,17 +168,46 @@
   border-radius: 2px;
 }
 
-.ros-graph-legend .line {
-  width: 22px;
-  border-top: 2px solid var(--text-muted);
+/* 범례의 선 견본은 구조도의 .edge 선 스타일을 그대로 빌려 쓰되, 누를 수 없게 한다. */
+.ros-graph-legend .legend-line {
+  width: 24px;
+  height: 6px;
+  pointer-events: none;
 }
 
-.ros-graph-legend .line.action {
-  border-top-style: dashed;
+.ros-graph-modes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
 }
 
-.ros-graph-legend .line.hardware {
-  border-top-style: dotted;
+.ros-graph-modes span {
+  color: var(--text-muted);
+}
+
+.ros-graph-modes button {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ros-graph-modes button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.ros-graph-modes button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 /* 좁은 화면에서는 글자가 너무 작아지지 않게 최소 폭을 두고 가로로 스크롤한다. */
@@ -186,7 +215,7 @@
   overflow-x: auto;
 }
 
-.ros-graph svg {
+.ros-graph-scroll > svg {
   display: block;
   width: 100%;
   min-width: 680px;
@@ -208,6 +237,11 @@
 .ros-graph .node.hardware .box {
   fill: var(--surface-sunken);
   stroke-dasharray: 4 3;
+}
+
+.ros-graph .node.external .box {
+  stroke-dasharray: 1 3;
+  stroke-width: 1.6;
 }
 
 .ros-graph .node .stripe {
@@ -263,6 +297,10 @@
   stroke-dasharray: 2 4;
 }
 
+.ros-graph .edge.service .stroke {
+  stroke-dasharray: 9 3 2 3;
+}
+
 .ros-graph .edge:is(:hover, :focus-visible) .stroke {
   stroke: var(--text);
   stroke-width: 2.4;
@@ -287,6 +325,25 @@
 
 .ros-graph .has-selection .node:not(.is-active) {
   opacity: 0.55;
+}
+
+.ros-graph .band rect {
+  fill: var(--surface-sunken);
+  fill-opacity: 0.55;
+  stroke: var(--border);
+}
+
+.ros-graph .band text {
+  font-size: 12px;
+}
+
+.ros-graph .band-label {
+  font-weight: 700;
+  fill: var(--text);
+}
+
+.ros-graph .band-sub {
+  fill: var(--text-muted);
 }
 
 .ros-graph .group rect {

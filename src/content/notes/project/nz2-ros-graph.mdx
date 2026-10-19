@@ -1,6 +1,6 @@
 ---
 title: 팀NZ2 ROS 2 노드·토픽 구조도
-description: RGB 퍽을 선반에서 선반으로 옮기는 모바일 매니퓰레이터(팀NZ2)의 ROS 2 노드와 토픽 구성. 제안 초안.
+description: RGB 퍽을 선반에서 선반으로 옮기는 모바일 매니퓰레이터(팀NZ2)의 5계층 노드 구성, 토픽·서비스·액션, 커스텀 메시지, 통신 규칙. 제안 초안 v2.
 category: project
 tags: [ROS 2, 팀NZ2, 시스템 구조, 모바일 매니퓰레이터]
 date: 2026-10-19
@@ -10,93 +10,617 @@ draft: false
 
 import RosGraph from '../../../components/widgets/RosGraph';
 
-export const nodes = [
-  { id: 'hw-realsense', label: 'RealSense', lines: ['카메라'], role: 'RealSense 카메라 (컬러·depth)', kind: 'hardware', color: 'ros2', x: 12, y: 48, w: 118 },
-  { id: 'hw-opencr2', label: 'OpenCR #2', lines: ['스월브용', 'ID 1-8'], role: 'OpenCR 1.0. 스월브 다이나믹셀 ID 1-8 담당', kind: 'hardware', color: 'ros2', x: 12, y: 290, w: 118 },
-  { id: 'hw-opencr1', label: 'OpenCR #1', lines: ['팔용', 'ID 11-16'], role: 'OpenCR 1.0. 팔 다이나믹셀 ID 11-16 담당', kind: 'hardware', color: 'ros2', x: 12, y: 410, w: 118 },
-  { id: 'realsense2_camera', label: 'realsense2_camera', lines: ['컬러·depth 영상 발행'], role: '컬러·depth 영상 발행', kind: 'node', owner: '인지', origin: '기존 패키지', color: 'perception', x: 170, y: 48, w: 222 },
-  { id: 'puck_detector', label: 'puck_detector', lines: ['퍽 색·형상·자세 인식,', '로봇 기준 3D 위치 계산'], role: '퍽 색·형상·자세 인식, 로봇 기준 3D 위치 계산', kind: 'node', owner: '인지', origin: '직접 작성', color: 'perception', x: 440, y: 48, w: 190 },
-  { id: 'visual_slam', label: 'visual_slam', sublabel: '(cuVSLAM)', lines: ['로봇 위치 추정'], role: '로봇 위치 추정', kind: 'node', owner: '인지', origin: '기존 패키지', note: '11/10 범위 미정', color: 'perception', x: 676, y: 48, w: 196 },
-  { id: 'mission_planner', label: 'mission_planner', lines: ['상태 머신, 옮기는 순서,', '이동·집기 지시'], role: '상태 머신, 옮기는 순서, 이동·집기 지시', kind: 'node', owner: '판단', origin: '직접 작성', color: 'nav2', x: 440, y: 160, w: 190 },
-  { id: 'swerve_controller', label: 'swerve_controller', lines: ['속도 명령 → 바퀴 8개 명령,', '주행 거리 계산'], role: '속도 명령 → 바퀴 8개(ID 1-8) 명령, 주행 거리 계산. 스월브용 OpenCR과 통신', kind: 'node', owner: '제어', origin: '직접 작성', color: 'control', x: 170, y: 290, w: 222 },
-  { id: 'ros2_control', label: 'ros2_control', sublabel: '+ dynamixel_hardware_interface', lines: ['팔 관절(ID 11-16) 구동'], role: '팔 관절(ID 11-16) 구동. 팔용 OpenCR과 통신', kind: 'node', owner: '제어', origin: '기존 패키지', color: 'control', x: 170, y: 410, w: 222 },
-  { id: 'robot_state_publisher', label: 'robot_state_publisher', lines: ['URDF로 부품 좌표(TF) 발행'], role: 'URDF로 각 부품 좌표(TF) 발행', kind: 'node', owner: '테크리드', origin: '기존 패키지', color: 'project', x: 676, y: 290, w: 196 },
-  { id: 'move_group', label: 'move_group', sublabel: '(MoveIt)', lines: ['팔 경로 계획(IK)'], role: '팔 경로 계획(IK)', kind: 'node', owner: '판단', origin: '기존 패키지', color: 'nav2', x: 440, y: 410, w: 190 },
+export const bands = [
+  { label: '① 임무 관리', sub: '판단', x: 4, y: 8, w: 868, h: 100 },
+  { label: '② 센서 · 인지', sub: '인지', x: 4, y: 116, w: 868, h: 100 },
+  { label: '③ 확정 실행', sub: '판단 · 인지(위치 추정)', x: 4, y: 224, w: 868, h: 100 },
+  { label: '④ 안전', sub: '제어', x: 4, y: 332, w: 868, h: 100 },
+  { label: '⑤ 하드웨어', sub: '제어', x: 4, y: 440, w: 868, h: 228 },
 ];
 
-export const bus = { id: 'all', label: '모든 노드', x: 158, y: 520, w: 714, h: 44 };
+export const groups = [{ id: 'controller_manager', label: 'controller_manager (하나) · hardware component는 OpenCR별 2개', x: 208, y: 458, w: 664, h: 100 }];
 
-export const edges = [
-  { id: 'hw-camera', from: 'hw-realsense', to: 'realsense2_camera', kind: 'hardware', topics: [], points: [[130, 83], [170, 83]] },
+export const bus = { id: 'all', label: '모든 노드', x: 880, y: 20, w: 24, h: 660, vertical: true };
+
+export const modes = [
+  { id: 'a', label: '(가) cuVSLAM + RealSense' },
+  { id: 'b', label: '(나) 지도 + 휠·IMU EKF' },
+];
+
+export const nodes = [
+  { id: 'operator', label: '사람 (운영자)', lines: ['/cmd/* 명령'], role: '비상 정지·운전 모드 명령, 수동 조작 테스트', kind: 'external', color: 'robotics', x: 20, y: 30, w: 120 },
   {
-    id: 'camera-images', from: 'realsense2_camera', to: 'puck_detector', kind: 'topic', points: [[392, 83], [440, 83]],
-    topics: [
-      { name: '/camera/camera/color/image_raw', type: 'sensor_msgs/Image' },
-      { name: '/camera/camera/aligned_depth_to_color/image_raw', type: 'sensor_msgs/Image' },
-      { name: '/camera/camera/color/camera_info', type: 'sensor_msgs/CameraInfo', note: '3D 복원용' },
+    id: 'decision_node', label: 'decision_node', lines: ['순회 → 운반, 재시도', '/cmd 받아 /state 발행'],
+    role: '순회 경유점, 운반 대상과 순서, 재계획·건너뛰기. navigate_to_pose와 pick_puck 액션을 보내고, /cmd/*를 받아 /state/*를 발행하는 유일한 노드',
+    kind: 'node', owner: '판단', origin: '직접 작성', color: 'nav2', x: 341, y: 30, w: 180,
+    extra: [{ dir: 'in', name: '/joint_states', type: 'sensor_msgs/JointState', peer: 'controller_manager (joint_state broadcaster)', note: '구조도에는 화살표 생략' }],
+  },
+  { id: 'hw-cam-grip', label: 'RealSense', lines: ['그리퍼'], role: 'RealSense (그리퍼 장착, 손 카메라)', kind: 'hardware', color: 'ros2', x: 20, y: 138, w: 100 },
+  {
+    id: 'rs-grip', label: 'realsense2_camera', sublabel: '(그리퍼)', lines: ['두 번째 인스턴스'],
+    role: '그리퍼 RealSense 영상 발행 (손 카메라). realsense2_camera의 두 번째 인스턴스',
+    kind: 'node', owner: '인지(제안)', origin: '기존 패키지', note: '손 카메라 토픽 이름 [미정]', color: 'perception', x: 148, y: 138, w: 165,
+  },
+  {
+    id: 'perception', label: 'perception', lines: ['YOLO · 경광등 · 퍽 지도', '손 카메라 정렬 · QR'],
+    role: 'YOLOv8 모델 하나로 두 카메라 처리. 내부 모듈: 검출기, 경광등 판단, 선반 평면 투영, 퍽 지도, 손 카메라 정렬·QR. 손 카메라는 운반 단계에만 처리',
+    kind: 'node', owner: '인지', origin: '직접 작성', note: '검출기 라이선스 [미정] (YOLOv8·ultralytics는 AGPL-3.0). 경광등·QR은 규칙 확정 전 가정', color: 'perception', x: 341, y: 138, w: 180,
+    extra: [
+      { dir: 'out', name: '/perception/pucks', type: 'vision_msgs/Detection3DArray', peer: 'rviz (디버그)', note: '이번 프레임에 보인 퍽, base_link 기준' },
+      { dir: 'out', name: '/perception/puck_map/markers', type: 'visualization_msgs/MarkerArray', peer: 'rviz (디버그)', note: '퍽 지도 표시' },
+      { dir: 'out', name: '/perception/debug_image', type: 'sensor_msgs/Image', peer: 'rviz (디버그)', note: '박스를 그린 영상' },
     ],
   },
   {
-    id: 'camera-infra', from: 'realsense2_camera', to: 'visual_slam', kind: 'topic', points: [[300, 48], [300, 26], [774, 26], [774, 48]],
+    id: 'rs-front', label: 'realsense2_camera', sublabel: '(전면 D435)', lines: ['컬러 · depth · 점구름'],
+    role: 'D435 컬러, 정렬된 depth, 포인트클라우드. 640×480, 15-30 fps, align_depth.enable:=true',
+    kind: 'node', owner: '인지(제안)', origin: '기존 패키지', color: 'perception', x: 549, y: 138, w: 165,
+  },
+  { id: 'hw-cam-front', label: 'RealSense', lines: ['전면 (D435)'], role: 'RealSense D435 (차체 전면, 높이 약 180 mm, 기울기 미정)', kind: 'hardware', color: 'ros2', x: 742, y: 138, w: 100 },
+  { id: 'hw-range', label: '거리 센서', lines: ['그리퍼', '연결 미정'], role: '그리퍼 거리 센서. 집기 직전 거리 확인. 연결(OpenCR / Jetson) 미정', kind: 'hardware', color: 'ros2', x: 20, y: 246, w: 100 },
+  {
+    id: 'pick_server', label: 'pick_server', lines: ['pick_puck 액션 서버', 'IK · 집기 · 전류 감시'],
+    role: 'pick_puck 액션 서버. 접근 → 정렬 → 파지 → 들기 → 적재/내려놓기를 IK로 계획해 궤적 전송. 실행 중 관절 전류를 감시해 접촉이면 궤적 취소',
+    kind: 'node', owner: '판단', origin: '직접 작성', note: 'IK 방식 [미정] (자체 IK / MoveIt)', color: 'nav2', x: 228, y: 246, w: 170,
+  },
+  {
+    id: 'nav2', label: 'Nav2', sublabel: '+ map_server', lines: ['경로 계획 · 추종'],
+    role: '주어진 지도, 전방향 컨트롤러, D435 점구름 voxel layer로 동적 장애물 처리',
+    kind: 'node', owner: '판단(제안)', origin: '기존 패키지', note: 'map_server가 주어진 지도를 /map(nav_msgs/OccupancyGrid, transient local)으로 Nav2에 보낸다', color: 'nav2', x: 464, y: 246, w: 170,
+  },
+  {
+    id: 'loc-none', mode: 'none', label: '위치 추정', sublabel: '[미정]', lines: ['위 버튼으로 후보 보기'],
+    role: '위치 추정 방식 미정. 후보 (가) cuVSLAM + RealSense, (나) 주어진 지도 + 휠·IMU EKF. 위의 버튼으로 각 후보의 노드와 토픽을 볼 수 있다',
+    kind: 'node', owner: '인지', origin: '미정', color: 'perception', x: 662, y: 246, w: 200,
+  },
+  {
+    id: 'visual_slam', mode: 'a', label: 'visual_slam', sublabel: '(cuVSLAM) 후보 (가)', lines: ['적외선 스테레오 위치 추정'],
+    role: 'RealSense 적외선 스테레오 영상으로 로봇 위치 추정',
+    kind: 'node', owner: '인지', origin: '기존 패키지', note: 'odometry를 받는 쪽과 TF(map → odom, odom → base_link) 발행자 미정', color: 'perception', x: 662, y: 246, w: 200,
+    extra: [{ dir: 'out', name: '/visual_slam/tracking/odometry', type: 'nav_msgs/Odometry', peer: '미정', note: '받는 쪽·TF 미정' }],
+  },
+  {
+    id: 'ekf', mode: 'b', label: 'robot_localization', sublabel: '(EKF) 후보 (나)', lines: ['휠 + IMU 융합, map → odom'],
+    role: '휠 /odom + /imu 융합, odom → base_link TF의 유일한 발행자. map → odom은 출발 자세 기준 고정값(static_transform_publisher), 드리프트가 크면 AMCL로 교체',
+    kind: 'node', owner: '인지(제안)', origin: '기존 패키지', color: 'perception', x: 662, y: 246, w: 200,
+  },
+  {
+    id: 'twist_mux', label: 'twist_mux', sublabel: '(선택)', lines: ['수동 조작 테스트용'],
+    role: '수동 조작 테스트용. 디버그 launch에만 띄운다',
+    kind: 'node', owner: '제어', origin: '기존 패키지', note: '쓰면 Nav2와 velocity_smoother 사이에 들어간다', color: 'control', x: 20, y: 354, w: 170,
+  },
+  {
+    id: 'velocity_smoother', label: 'velocity_smoother', lines: ['급가속 · 급감속 제한'],
+    role: '급가속·급감속 제한', kind: 'node', owner: '제어', origin: '기존 패키지', note: 'Nav2와 같은 프로세스로 묶어 띄운다', color: 'control', x: 464, y: 354, w: 170,
+  },
+  {
+    id: 'collision_monitor', label: 'collision_monitor', lines: ['점구름으로 감속 · 정지', '최종 /cmd_vel 발행'],
+    role: 'D435 점구름으로 감속·정지 구역 검사, 최종 /cmd_vel 발행', kind: 'node', owner: '제어', origin: '기존 패키지', color: 'control', x: 662, y: 354, w: 200,
+  },
+  {
+    id: 'cm-arm', label: '팔 component', lines: ['JTC(팔) · 그리퍼', 'OpenCR #1 · ID 11-16'],
+    role: 'controller_manager의 팔 hardware component. 팔 JTC와 그리퍼 컨트롤러가 OpenCR #1(다이나믹셀 ID 11-16)을 구동',
+    kind: 'node', owner: '제어', origin: 'ros2_control 기존 컨트롤러', note: '받은 각도대로 실행', group: 'controller_manager', color: 'control', x: 228, y: 478, w: 170,
+  },
+  {
+    id: 'cm-broadcaster', label: 'broadcaster', lines: ['joint_state · imu', 'IMU 보드 [미정]'],
+    role: 'joint_state broadcaster와 imu broadcaster. OpenCR 보드 내장 IMU를 쓰며, 두 OpenCR 중 어느 쪽인지는 미정',
+    kind: 'node', owner: '제어', origin: 'ros2_control 기존 broadcaster', group: 'controller_manager', color: 'control', x: 428, y: 478, w: 170,
+    extra: [{ dir: 'out', name: '/joint_states', type: 'sensor_msgs/JointState', peer: 'decision_node', note: '구조도에는 화살표 생략' }],
+  },
+  {
+    id: 'cm-swerve', label: '스월브 component', lines: ['스월브 컨트롤러', 'OpenCR #2 · ID 1-8'],
+    role: 'controller_manager의 스월브 hardware component. 스월브 컨트롤러가 OpenCR #2(다이나믹셀 ID 1-8)를 구동하고 /odom을 낸다(TF는 끔)',
+    kind: 'node', owner: '제어', origin: '미정 (ros2_control 플러그인 직접 작성 / 기존 패키지)', group: 'controller_manager', color: 'control', x: 662, y: 478, w: 200,
+  },
+  { id: 'hw-opencr1', label: 'OpenCR #1', lines: ['팔 6개 (ID 11-16)'], role: 'OpenCR 1.0. 팔 ID 11-14, 그리퍼 ID 15, 손목 롤 ID 16', kind: 'hardware', color: 'ros2', x: 228, y: 578, w: 170 },
+  {
+    id: 'robot_state_publisher', label: 'robot_state_publisher', lines: ['URDF로 TF 발행'],
+    role: 'URDF + /joint_states로 TF 발행. 카메라·팔 장착 위치와 기울기는 여기서만 관리',
+    kind: 'node', owner: '테크리드(제안)', origin: '기존 패키지', color: 'project', x: 428, y: 578, w: 200,
+  },
+  { id: 'hw-opencr2', label: 'OpenCR #2', lines: ['스월브 8개 (ID 1-8)'], role: 'OpenCR 1.0. 스월브 다이나믹셀 ID 1-8', kind: 'hardware', color: 'ros2', x: 662, y: 578, w: 200 },
+];
+
+export const edges = [
+  {
+    id: 'cmd', from: 'operator', to: 'decision_node', kind: 'topic', points: [[140, 55], [341, 55]],
     topics: [
-      { name: '/camera/camera/infra1/image_rect_raw', type: 'sensor_msgs/Image', note: '적외선 스테레오 (왼쪽)' },
-      { name: '/camera/camera/infra2/image_rect_raw', type: 'sensor_msgs/Image', note: '적외선 스테레오 (오른쪽)' },
+      { name: '/cmd/e_stop', type: 'std_msgs/Bool' },
+      { name: '/cmd/operation_mode', type: 'std_msgs/String', note: 'AUTO · MANUAL' },
+    ],
+  },
+  { id: 'manual', from: 'operator', to: 'twist_mux', kind: 'topic', points: [[20, 80], [8, 80], [8, 389], [20, 389]], topics: [{ name: '/cmd/manual/cmd_vel', type: 'geometry_msgs/TwistStamped', note: '(선택) 수동 조작' }] },
+  { id: 'hw-grip', from: 'hw-cam-grip', to: 'rs-grip', kind: 'hardware', topics: [], points: [[120, 173], [148, 173]] },
+  { id: 'hw-front', from: 'hw-cam-front', to: 'rs-front', kind: 'hardware', topics: [], points: [[742, 173], [714, 173]] },
+  {
+    id: 'grip-images', from: 'rs-grip', to: 'perception', kind: 'topic', points: [[313, 173], [341, 173]],
+    topics: [
+      { name: '손 카메라 영상 [미정]', type: 'sensor_msgs/Image' },
+      { name: '손 카메라 camera_info [미정]', type: 'sensor_msgs/CameraInfo' },
+    ],
+  },
+  {
+    id: 'front-images', from: 'rs-front', to: 'perception', kind: 'topic', points: [[549, 173], [521, 173]],
+    topics: [
+      { name: '/camera/camera/color/image_raw', type: 'sensor_msgs/Image' },
+      { name: '/camera/camera/color/camera_info', type: 'sensor_msgs/CameraInfo', note: '선반 평면 투영' },
+      { name: '/camera/camera/aligned_depth_to_color/image_raw', type: 'sensor_msgs/Image', note: '가까울 때 보정' },
+    ],
+  },
+  { id: 'points-nav2', from: 'rs-front', to: 'nav2', kind: 'topic', points: [[590, 208], [590, 246]], topics: [{ name: '/camera/camera/depth/color/points', type: 'sensor_msgs/PointCloud2', note: 'costmap voxel layer, 10-15 Hz로 다운샘플' }] },
+  { id: 'points-collision', from: 'rs-front', to: 'collision_monitor', kind: 'topic', points: [[642, 208], [642, 342], [720, 342], [720, 354]], topics: [{ name: '/camera/camera/depth/color/points', type: 'sensor_msgs/PointCloud2', note: '감속·정지 구역 검사' }] },
+  {
+    id: 'infra', mode: 'a', from: 'rs-front', to: 'visual_slam', kind: 'topic', points: [[700, 208], [700, 246]],
+    topics: [
+      { name: '/camera/camera/infra1/image_rect_raw', type: 'sensor_msgs/Image' },
+      { name: '/camera/camera/infra2/image_rect_raw', type: 'sensor_msgs/Image' },
       { name: '/camera/camera/infra1/camera_info', type: 'sensor_msgs/CameraInfo' },
       { name: '/camera/camera/infra2/camera_info', type: 'sensor_msgs/CameraInfo' },
     ],
   },
-  { id: 'vslam-odom', from: 'visual_slam', to: 'mission_planner', kind: 'topic', points: [[690, 118], [690, 168], [630, 168]], topics: [{ name: '/visual_slam/tracking/odometry', type: 'nav_msgs/Odometry' }] },
-  { id: 'pucks', from: 'puck_detector', to: 'mission_planner', kind: 'topic', points: [[535, 118], [535, 160]], topics: [{ name: '/perception/pucks', type: 'vision_msgs/Detection3DArray', note: '퍽 종류는 class_id, 위치는 pose' }] },
-  { id: 'cmd-vel', from: 'mission_planner', to: 'swerve_controller', kind: 'topic', points: [[440, 190], [412, 190], [412, 315], [392, 315]], topics: [{ name: '/cmd_vel', type: 'geometry_msgs/Twist', note: '스월브라 linear.y도 사용' }] },
-  { id: 'odom', from: 'swerve_controller', to: 'mission_planner', kind: 'topic', points: [[392, 340], [426, 340], [426, 205], [440, 205]], topics: [{ name: '/odom', type: 'nav_msgs/Odometry' }] },
-  { id: 'move-action', from: 'mission_planner', to: 'move_group', kind: 'action', points: [[535, 230], [535, 410]], topics: [{ name: '/move_action', type: 'moveit_msgs/action/MoveGroup', note: '집기·놓기 목표 자세' }] },
-  { id: 'gripper', from: 'mission_planner', to: 'ros2_control', kind: 'action', points: [[470, 230], [470, 390], [330, 390], [330, 410]], topics: [{ name: '그리퍼 열기·닫기', type: 'control_msgs (그리퍼 컨트롤러 액션)', note: 'open_manipulator 패키지 설정을 따름' }] },
-  { id: 'joint-states-swerve', from: 'swerve_controller', to: 'robot_state_publisher', kind: 'topic', points: [[392, 352], [676, 352]], topics: [{ name: '/joint_states', type: 'sensor_msgs/JointState', note: '스월브 조향·바퀴 관절' }] },
-  { id: 'joint-states-arm-rsp', from: 'ros2_control', to: 'robot_state_publisher', kind: 'topic', points: [[392, 420], [404, 420], [404, 374], [706, 374], [706, 360]], topics: [{ name: '/joint_states', type: 'sensor_msgs/JointState', note: '팔 관절 (joint_state_broadcaster)' }] },
-  { id: 'joint-states-arm-moveit', from: 'ros2_control', to: 'move_group', kind: 'topic', points: [[392, 440], [440, 440]], topics: [{ name: '/joint_states', type: 'sensor_msgs/JointState', note: '팔 관절만' }] },
-  { id: 'arm-trajectory', from: 'move_group', to: 'ros2_control', kind: 'action', points: [[440, 465], [392, 465]], topics: [{ name: '팔 명령', type: 'control_msgs/FollowJointTrajectory', note: '액션' }], note: '받는 쪽은 ros2_control의 팔 컨트롤러다.' },
-  { id: 'hw-swerve', from: 'swerve_controller', to: 'hw-opencr2', kind: 'hardware', both: true, topics: [], points: [[170, 325], [130, 325]] },
-  { id: 'hw-arm', from: 'ros2_control', to: 'hw-opencr1', kind: 'hardware', both: true, topics: [], points: [[170, 445], [130, 445]] },
   {
-    id: 'tf', from: 'robot_state_publisher', to: 'all', kind: 'topic', points: [[774, 360], [774, 520]],
+    id: 'perception-out', from: 'perception', to: 'decision_node', kind: 'topic', points: [[410, 138], [410, 100]],
     topics: [
-      { name: '/tf', type: 'tf2_msgs/TFMessage' },
-      { name: '/tf_static', type: 'tf2_msgs/TFMessage' },
+      { name: '/perception/puck_map', type: 'team_interfaces/PuckMap', note: 'map 기준 퍽 목록. ID는 임무 내내 유지' },
+      { name: '/perception/tower_light', type: 'team_interfaces/TowerLight', note: '규칙 확정 전 가정. 출처 D435 또는 손 카메라 미정' },
     ],
   },
-  { id: 'mission-status', from: 'mission_planner', to: 'all', kind: 'topic', points: [[630, 185], [658, 185], [658, 520]], topics: [{ name: '/mission/status', type: 'std_msgs/String', note: '현재 상태' }] },
-  { id: 'diagnostics', from: 'all', to: 'mission_planner', kind: 'topic', points: [[644, 520], [644, 210], [630, 210]], topics: [{ name: '/diagnostics', type: 'diagnostic_msgs/DiagnosticArray', note: '장애 감지' }] },
+  {
+    id: 'perception-srv', from: 'decision_node', to: 'perception', kind: 'service', points: [[470, 100], [470, 138]],
+    topics: [
+      { name: '/perception/puck_map/set_state', type: 'team_interfaces/SetPuckState', note: '운반 후 PICKED, 집기 실패로 사라지면 LOST' },
+      { name: '/perception/read_qr', type: 'std_srvs/Trigger', note: '규칙 확정 전 가정. 멈춘 상태에서 요청하면 message에 QR 내용' },
+    ],
+  },
+  { id: 'hand-target', from: 'perception', to: 'pick_server', kind: 'topic', points: [[370, 208], [370, 246]], topics: [{ name: '/perception/hand_target', type: 'team_interfaces/HandTarget', note: '운반 단계에서 손 카메라에 퍽이 보이는 동안' }] },
+  { id: 'navigate', from: 'decision_node', to: 'nav2', kind: 'action', points: [[535, 100], [535, 246]], topics: [{ name: 'navigate_to_pose', type: 'nav2_msgs/action/NavigateToPose' }] },
+  { id: 'pick-puck', from: 'decision_node', to: 'pick_server', kind: 'action', points: [[327, 100], [327, 246]], topics: [{ name: '/pick_puck', type: 'team_interfaces/action/PickPuck', note: '초안' }] },
+  { id: 'range', from: 'hw-range', to: 'pick_server', kind: 'topic', points: [[120, 281], [228, 281]], topics: [{ name: '/gripper/range', type: 'sensor_msgs/Range' }] },
+  { id: 'cmd-vel-nav', from: 'nav2', to: 'velocity_smoother', kind: 'topic', points: [[549, 316], [549, 354]], topics: [{ name: '/cmd_vel_nav', type: 'geometry_msgs/TwistStamped', note: '20 Hz' }] },
+  { id: 'cmd-vel-smoothed', from: 'velocity_smoother', to: 'collision_monitor', kind: 'topic', points: [[634, 389], [662, 389]], topics: [{ name: '/cmd_vel_smoothed', type: 'geometry_msgs/TwistStamped' }] },
+  { id: 'cmd-vel', from: 'collision_monitor', to: 'cm-swerve', kind: 'topic', points: [[760, 424], [760, 478]], topics: [{ name: '/cmd_vel', type: 'geometry_msgs/TwistStamped', note: 'linear.x, linear.y, angular.z 사용' }] },
+  { id: 'arm-trajectory', from: 'pick_server', to: 'cm-arm', kind: 'action', points: [[280, 316], [280, 478]], topics: [{ name: '/arm_controller/follow_joint_trajectory', type: 'control_msgs/action/FollowJointTrajectory', note: '접촉 감지 시 pick_server가 취소' }] },
+  { id: 'gripper-cmd', from: 'pick_server', to: 'cm-arm', kind: 'action', points: [[340, 316], [340, 478]], topics: [{ name: '/gripper_controller/gripper_cmd', type: 'control_msgs/action/GripperCommand' }] },
+  { id: 'joint-states-rsp', from: 'cm-broadcaster', to: 'robot_state_publisher', kind: 'topic', points: [[513, 548], [513, 578]], topics: [{ name: '/joint_states', type: 'sensor_msgs/JointState' }] },
+  { id: 'joint-states-pick', from: 'cm-broadcaster', to: 'pick_server', kind: 'topic', points: [[440, 478], [440, 300], [398, 300]], topics: [{ name: '/joint_states', type: 'sensor_msgs/JointState' }] },
+  { id: 'hw-arm', from: 'cm-arm', to: 'hw-opencr1', kind: 'hardware', both: true, topics: [], points: [[313, 548], [313, 578]] },
+  { id: 'hw-swerve', from: 'cm-swerve', to: 'hw-opencr2', kind: 'hardware', both: true, topics: [], points: [[762, 548], [762, 578]] },
+  { id: 'odom', mode: 'b', from: 'cm-swerve', to: 'ekf', kind: 'topic', points: [[862, 500], [870, 500], [870, 290], [862, 290]], topics: [{ name: '/odom', type: 'nav_msgs/Odometry', note: 'TF는 내지 않음' }] },
+  { id: 'imu', mode: 'b', from: 'cm-broadcaster', to: 'ekf', kind: 'topic', points: [[598, 500], [652, 500], [652, 300], [662, 300]], topics: [{ name: '/imu', type: 'sensor_msgs/Imu', note: 'OpenCR 보드 내장 IMU, 보드 미정' }] },
+  {
+    id: 'ekf-nav2', mode: 'b', from: 'ekf', to: 'nav2', kind: 'topic', points: [[662, 270], [634, 270]],
+    topics: [
+      { name: '/odometry/filtered', type: 'nav_msgs/Odometry' },
+      { name: 'odom → base_link', type: 'TF' },
+    ],
+  },
+  { id: 'map-odom', mode: 'b', from: 'ekf', to: 'all', kind: 'topic', points: [[862, 262], [880, 262]], topics: [{ name: 'map → odom', type: 'TF', note: '출발 자세 고정값(static_transform_publisher) 또는 AMCL' }] },
+  {
+    id: 'state', from: 'decision_node', to: 'all', kind: 'topic', points: [[521, 50], [880, 50]],
+    topics: [
+      { name: '/state/emergency', type: 'std_msgs/Bool', note: 'transient local' },
+      { name: '/state/operation_mode', type: 'std_msgs/String', note: 'transient local' },
+      { name: '/state/mission_phase', type: 'std_msgs/String', note: 'IDLE · SURVEY · TRANSPORT · DONE. perception은 이 값으로 퍽 지도 누적과 손 카메라 처리를 켜고 끔' },
+    ],
+  },
+  {
+    id: 'tf', from: 'robot_state_publisher', to: 'all', kind: 'topic', points: [[528, 648], [528, 672], [880, 672]],
+    topics: [
+      { name: '/tf_static', type: 'tf2_msgs/TFMessage', note: 'base_link → camera_link, base_link → arm_base_link (팔 장착 위치 미정, 값은 URDF에만)' },
+      { name: '/tf', type: 'tf2_msgs/TFMessage', note: '팔 관절에 따라 움직이는 그리퍼 카메라 링크' },
+    ],
+  },
 ];
 
-<Callout type="warn" title="제안 초안 (2026-10-19)">
-  킥오프 회의에서 확정 예정이다. 노드·토픽 이름과 메시지 형식은 바뀔 수 있다.
+<Callout type="warn" title="제안 초안 v2 (2026-10-19 회의 중 팀원 제안 반영)">
+  확정 전이다. 회의에서 팀원 제안서를 기준으로 삼기로 했고, 회의에서 정정·확정된 내용을 반영했다.
+  **[미정]** 으로 표시한 항목은 아래 "정할 것 · 확인할 것"에 모았다.
 </Callout>
 
 ## 개요
 
 KANT PA1 LV2 프로젝트2 **팀NZ2**의 로봇은 RGB 퍽을 선반에서 선반으로 옮기는 모바일 매니퓰레이터다.
+임무는 주어진 미로 지도 안에서 한 바퀴 돌며 퍽 위치를 파악한 뒤, 퍽을 색깔별로 옮기는 것이다(**규칙 확정 전 가정**).
 
-| 항목 | 내용 |
+이 페이지는 인지·판단·제어 세 파트가 주고받는 통신 규약이다. 파트 사이의 약속은 `/perception/...` 토픽과
+`team_interfaces` 메시지로만 정하고, 각 파트 안쪽 구조는 바뀌어도 다른 파트에 영향이 없게 한다.
+
+### 기준 사양
+
+| 항목 | 값 |
 | --- | --- |
-| 차체 | 스월브 4모듈 |
-| 팔 | OpenMANIPULATOR-X 개조 (손목 롤 추가) |
+| 차체 | 400 × 400 mm, 윗면 높이 180 mm, 스월브 4모듈 |
+| 팔 | OpenMANIPULATOR-X, 링크 약 +100 mm 연장, 그리퍼 롤 회전 가능. 장착 위치 **[미정]** (상면 중앙 / 중심에서 40 mm 앞, 실물 확인 후 확정) |
+| 카메라 | RealSense 2대. 차체 전면 D435(높이 약 180 mm, 기울기 미정, 일단 10°로 테스트), 그리퍼 1대 |
+| 그리퍼 거리 센서 | 집기 직전 거리 확인. 연결(OpenCR / Jetson) 미정 |
 | 연산 | Jetson Orin Nano Developer Kit |
-| 구동 보드 | OpenCR 1.0 2대. #1은 팔(다이나믹셀 ID 11-16), #2는 스월브(ID 1-8) |
-| 역할 | 인지 · 제어 · 판단(팀장, 테크리드) |
+| 모터 제어 | OpenCR 2대 (팔 6 + 스월브 8). #1은 팔 ID 11-16(팔 11-14, 그리퍼 15, 손목 롤 16), #2는 스월브 ID 1-8 |
+| 위치 추정 | **[미정]** (가) cuVSLAM + RealSense / (나) 주어진 지도 + 휠·IMU EKF |
+| 작업 대상 | 퍽: 직육면체 30 × 30 × 60 mm, 원통(치수 실물 확인). 빨강·초록·파랑. 선반(80 mm) 위에서 선반으로 이동 |
+| 사용 안 함 | 라이다 |
+
+### 역할 분담 (회의 확정)
+
+| 역할 | 맡는 일 |
+| --- | --- |
+| 인지 | 퍽 인식·위치, QR·신호등, SLAM(위치 추정 방식이 정해지면 그 담당) |
+| 판단 | 임무 상태 머신, 순서, 주행 목표, 팔 동작 계획(IK) |
+| 제어 | OpenCR 2대, 스월브 구동, 팔 관절 구동(받은 각도대로 실행), 안전 정지, 전원·배선 |
+
+구조도의 "(제안)"은 아직 담당이 확정되지 않은 노드다.
 
 ## 구조도
+
+인지 결과는 위로(decision_node), 손 카메라 정렬 값만 옆으로(pick_server) 간다.
+Nav2가 낸 속도는 안전 계층을 거쳐야 controller_manager에 도착한다.
 
 <RosGraph
   client:visible
   nodes={nodes}
   edges={edges}
+  groups={groups}
+  bands={bands}
   bus={bus}
-  width={884}
-  height={580}
+  modes={modes}
+  modeLabel="위치 추정 [미정] 후보:"
+  width={912}
+  height={690}
 />
 
-## 공통 약속
+## 계층과 원칙
 
-- 단위는 m, rad, s만 쓴다 (REP-103).
-- 퍽 위치는 로봇 기준 좌표로 다루고, 좌표 변환은 TF로 한다.
-- 그리퍼 카메라·거리 센서·신호등·QR 토픽은 센서 연결 방식과 대회 규칙이 정해진 뒤 추가한다.
+노드를 5개 계층으로 나눈다. 위는 느리고 추상적으로 무엇을 할지 정하고, 아래로 갈수록 빠르고 구체적으로 실행한다.
+구조는 컵 가져오기 로봇 7계층 설계를 참고했고, VLM과 강화학습 계층은 우리 임무에 필요 없어 뺐다.
+
+| 계층 | 역할 | 대표 노드 | 주기 | 담당 |
+| --- | --- | --- | --- | --- |
+| ① 임무 관리 | 순회 → 운반 단계 진행, 대상 퍽과 순서, 재시도·건너뛰기, `/state/*` 발행 | decision_node | 이벤트마다 | 판단 |
+| ② 센서 · 인지 | 카메라, YOLO, 경광등·퍽 인식, 퍽 지도, 집기 정렬 | realsense2_camera ×2, perception | 15-30 Hz (퍽 지도 약 1 Hz) | 인지 |
+| ③ 확정 실행 | 위치 추정, 경로 계획·추종, 팔 동작 순서 | 위치 추정 [미정], Nav2, pick_server | 20 Hz | 판단 · 인지(위치 추정) |
+| ④ 안전 | 최종 속도 제한·감속·정지 (팔 전류 감시는 pick_server 안) | velocity_smoother, collision_monitor (twist_mux는 선택) | 매 주기 | 제어 |
+| ⑤ 하드웨어 | read → update → write | controller_manager + OpenCR 2대 | 100 Hz | 제어 |
+
+### 지킬 규칙
+
+- **안전은 맨 뒤에 둔다.** 모든 속도 명령은 Nav2 복구 동작까지 포함해 velocity_smoother → collision_monitor를 거쳐 `/cmd_vel`이 된다. 접촉하면 실격이라 이 체인은 빼지 않는다.
+- **속도 명령은 체인 전체 TwistStamped.** 최근 ROS 2 배포판의 Nav2와 컨트롤러 기본값에 맞춘다.
+- **TF 발행자는 하나씩.** map → odom과 odom → base_link는 각각 한 노드만 낸다. (나) 안이면 map → odom은 출발 자세 고정값 또는 AMCL, odom → base_link는 EKF다. 스월브 컨트롤러는 TF를 끄고 `/odom` 토픽만 낸다.
+- **map → odom이 나오기 전에는 주행 목표를 보내지 않는다.**
+- **판단 권한은 한 층에 하나.** 다시 정렬해 한 번 더 집기 같은 실행 세부는 pick_server가, 퍽을 건너뛸지 같은 임무 결정은 decision_node가 한다.
+- **controller_manager는 하나.** hardware component는 OpenCR별로 2개(팔, 스월브)를 올린다. IMU는 OpenCR 보드 내장 IMU를 쓰고, 어느 보드의 IMU인지는 **[미정]** 이다.
+- **노드는 파트 안에서 합치고, 파트 사이 경계는 유지한다.** 인지는 perception 하나, 판단은 decision_node 하나로 합치되 `/perception/*`, 액션, team_interfaces는 그대로 둔다.
+
+### 토픽 이름 규칙
+
+- 사람이나 밖에서 들어오는 명령은 `/cmd/...`. 보내고 끝이다(예: `/cmd/e_stop`, `/cmd/operation_mode`).
+- 상태는 `/state/...`이고, 발행은 decision_node 하나만 한다. 바꾸고 싶으면 `/cmd/...`를 보낸다.
+- 인지 결과는 `/perception/...`.
+- 응답이 꼭 필요한 요청은 서비스, 오래 걸리는 동작은 액션으로 한다.
+
+## 임무 흐름과 퍽 지도
+
+<Callout type="warn" title="규칙 확정 전 가정">
+  대회 세부 규칙이 아직 확정되지 않았다. 아래 임무 흐름(순회 → 운반)과 경광등·QR 관련 내용은 규칙이 정해지면 바뀔 수 있다.
+</Callout>
+
+미로 지도는 주어지고 퍽과 신호등 위치만 바뀐다고 본다. 그래서 1단계에서 미로를 한 바퀴 돌며 퍽 지도를 만들고, 2단계에서 색깔별로 옮긴다.
+
+1. **순회**: 판단이 정한 경유점을 따라 미로를 한 바퀴 돈다. 모든 선반이 D435 시야에 한 번 이상 들어오도록 경유점과 방향을 잡는다.
+2. **기록**: perception의 퍽 지도 모듈이 퍽과 신호등 위치를 map 좌표로 누적한다.
+3. **운반**: 판단이 색깔별로 옮길 퍽과 순서를 정한다 → 저장된 위치로 이동 → 가까이서 재측정 → 손 카메라 정렬 → 집기 → 목적지에 내려놓기 → 해당 퍽을 PICKED로 변경 요청.
+
+| 단계 | 담당 | 하는 일 |
+| --- | --- | --- |
+| 순회 경로 | 판단 | 경유점 계획과 주행 |
+| 위치 추정 | 인지 (방식 [미정]) | 주어진 지도 기준 로봇 위치 추정. 지도는 만들지 않음 |
+| 퍽 검출 | 인지 | 프레임마다 색 · 모양 · 자세 · 위치 측정 |
+| 퍽 지도 | 인지 | 같은 퍽을 하나로 합치고, 고유 ID와 상태 관리 |
+| 운반 계획 | 판단 | 색깔별 대상 퍽, 목적지, 순서 결정 |
+| 집기 직전 정렬 | 인지 (손 카메라) | 정확한 위치와 yaw 보정 |
+
+### 퍽 지도를 만드는 규칙
+
+- **좌표 변환**: 박스 아래쪽 가운데를 선반 윗면(z = 0.08 m) 평면에 투영하고, 영상이 찍힌 시각의 TF로 map 좌표로 바꾼다. 최신 TF를 쓰면 주행 중 위치가 밀린다.
+- **합치기**: 기존 퍽과 거리가 합치는 범위 안이면 같은 퍽으로 본다. 범위는 관측 거리에 따라 키운다(가까우면 약 5 cm, 멀면 약 15 cm). 모양은 합치는 조건에 넣지 않는다. 누운 원통과 누운 직육면체를 헷갈리면 같은 퍽이 두 개로 등록되기 때문이다.
+- **위치 갱신**: 가중 평균으로 갱신한다. 가중치는 $1/d^2$로, 가까이서 본 관측을 더 믿는다.
+- **속성 결정**: 색 · 모양 · 자세 모두 관측할 때마다 투표해서 가장 많이 나온 값으로 정한다.
+- **확정**: 0.5초 이상에 걸쳐 N번(초안 3번) 관측돼야 CONFIRMED가 된다. 30 fps에서 3프레임은 0.1초라 순간 오검출도 통과하기 때문이다.
+- **신호등**: 같은 방식으로 위치를 map에 기록해서, 판단이 경로에 쓸 수 있게 한다(규칙 확정 전 가정).
+
+### 인지 노드 파라미터 (값은 초안, 테스트로 조정)
+
+| 모듈 (perception 안) | 파라미터 | 초안 값 |
+| --- | --- | --- |
+| 검출기 | `model_path`, `conf_threshold` | `best.engine`, 0.5 |
+| 검출기 | `detector_backend` (직접 추론 / Detection2DArray 구독) | `ultralytics` (라이선스 [미정]) |
+| 선반 평면 투영 | `shelf_height` | 0.08 m |
+| 퍽 지도 | `merge_radius_near`, `merge_radius_far` | 0.05 m, 0.15 m |
+| 퍽 지도 | `confirm_min_obs`, `confirm_min_duration_s` | 3, 0.5 s |
+| 퍽 지도 | `lost_timeout_s` (가까이 갔는데 안 보이면 LOST) | 3.0 s |
+| 퍽 지도 | `map_frame` | map |
+| 손 카메라 | `hand_active_phases` | TRANSPORT |
+
+카메라 기울기는 파라미터가 아니라 URDF(camera_link의 pitch) 한 곳에만 둔다. 투영, 퍽 지도, costmap, 스캔 변환이 모두 TF를 거치므로,
+각도가 바뀌면 URDF 한 줄과 캘리브레이션만 다시 하면 된다.
+
+<Callout type="key" title="(나) 안의 위치 보정">
+  휠 오도메트리와 IMU를 합친 EKF도 시간이 지나면 위치가 틀어진다. 그래서 저장된 위치는 접근용으로만 쓰고, 집기 전에 반드시 다시 측정한다.
+  드리프트가 크면 D435 점구름을 `pointcloud_to_laserscan`(target_frame: base_link, 바닥 위 약 3-40 cm)으로 스캔으로 바꿔 AMCL로 지도에 맞춘다.
+  `depthimage_to_laserscan`은 카메라가 정확히 수평이라고 보고 영상 가운데 줄을 쓰기 때문에, 조금만 숙여도 바닥을 벽으로 잡아 쓰지 않는다.
+</Callout>
+
+### 실패 처리
+
+실행 세부는 아래 계층이 먼저, 임무 결정은 decision_node가 한다.
+
+| 상황 | 먼저 | 그래도 안 되면 |
+| --- | --- | --- |
+| 집기 실패 (그리퍼가 완전히 닫힘 = 빈손) | pick_server가 손 카메라로 다시 정렬해 1회 재시도 | pick_puck FAILED → decision이 다른 방향에서 1회 재계획 → 같은 단계 2회 연속 실패면 퍽을 LOST로 바꾸고 다음 퍽 |
+| 이동 실패 (경로가 막힘) | Nav2가 복구 동작(Spin · Wait). 뒤를 못 보니 BackUp은 빼거나 0.1 m 이하 | ABORTED → decision이 다른 접근 위치로 1회 → 또 실패면 다음 퍽을 먼저 |
+| 팔 접촉 감지 | pick_server가 전류가 기준을 0.1초 넘게 넘으면 궤적 취소 | pick_puck 결과 REASON_CONTACT → 집기 실패와 같은 규칙 |
+| 비상 정지 | `/cmd/e_stop` → decision이 Nav2 목표와 pick_puck을 취소하고 `/state/emergency` 발행 | 해제되면 현재 단계부터 다시 |
+
+## 토픽 · 서비스 · 액션
+
+팀 규약의 핵심은 인지 → 판단 · 제어 표다. 카메라 토픽 이름은 realsense2_camera 기본값이고 설정에 따라 달라질 수 있다.
+
+### 인지 → 판단 · 제어 (팀 규약)
+
+| 이름 | 방식 | 타입 | 받는 쪽 | 비고 |
+| --- | --- | --- | --- | --- |
+| `/perception/puck_map` | topic | `team_interfaces/PuckMap` | 판단 | map 기준 퍽 목록. 순회 중 누적하고, 2단계에서 가까이 가면 같은 항목이 정밀하게 갱신됨. ID는 임무 내내 유지 |
+| `/perception/puck_map/set_state` | service | `team_interfaces/SetPuckState` | 판단 | 운반 후 PICKED, 집기 실패로 사라지면 LOST |
+| `/perception/tower_light` | topic | `team_interfaces/TowerLight` | 판단 | 칸별 켜짐 bool + 위치. 출처는 D435 또는 손 카메라 (미정). 규칙 확정 전 가정 |
+| `/perception/hand_target` | topic | `team_interfaces/HandTarget` | pick_server | 운반 단계에서 손 카메라에 퍽이 보이는 동안 |
+| `/perception/read_qr` | service | `std_srvs/Trigger` | 판단 | 멈춘 상태에서 요청 → message에 QR 내용. 규칙 확정 전 가정 |
+
+판단은 퍽 검출 결과로 `/perception/puck_map` 하나만 구독한다.
+
+### 인지 디버그용 (다른 파트와 무관)
+
+| 이름 | 타입 | 용도 |
+| --- | --- | --- |
+| `/perception/pucks` | `vision_msgs/Detection3DArray` | 이번 프레임에 보인 퍽(base_link 기준). class_id는 `"red_cyl"` 형식, bbox 자세에 yaw, bbox 높이로 자세. rviz 확인과 퍽 지도 rosbag 테스트용 |
+| `/perception/puck_map/markers` | `visualization_msgs/MarkerArray` | 퍽 지도를 rviz 지도 위에 표시(색깔별 도형 + ID 글자) |
+| `/perception/debug_image` | `sensor_msgs/Image` | 박스를 그린 영상(compressed로 보기) |
+
+세 토픽 모두 파라미터로 끌 수 있고, 경기 때는 꺼서 Jetson 연산을 아낀다.
+
+### 센서 · TF
+
+| 이름 | 타입 | 받는 쪽 |
+| --- | --- | --- |
+| `/camera/camera/color/image_raw` | `sensor_msgs/Image` | perception |
+| `/camera/camera/color/camera_info` | `sensor_msgs/CameraInfo` | perception (선반 평면 투영) |
+| `/camera/camera/aligned_depth_to_color/image_raw` | `sensor_msgs/Image` | perception (가까울 때 보정) |
+| `/camera/camera/depth/color/points` | `sensor_msgs/PointCloud2` | Nav2 costmap, collision_monitor (10-15 Hz로 다운샘플) |
+| 손 카메라 영상 · camera_info **[미정]** | Image, CameraInfo | perception (그리퍼 RealSense, realsense2_camera 두 번째 인스턴스) |
+| `/gripper/range` | `sensor_msgs/Range` | pick_server |
+| `/joint_states` | `sensor_msgs/JointState` | robot_state_publisher, pick_server, 판단 |
+| `/tf_static` | TF2 | base_link → camera_link, base_link → arm_base_link (값은 URDF에만, 팔 장착 위치 [미정]) |
+| `/tf` | TF2 | 팔 관절에 따라 움직이는 그리퍼 카메라 링크 |
+
+### 주행 · 위치 추정
+
+위치 추정 방식은 **[미정]** 이다. 아래 (가)·(나) 표시는 해당 후보에서만 쓰는 항목이다.
+
+| 이름 | 방식 | 타입 | 보내는 쪽 → 받는 쪽 |
+| --- | --- | --- | --- |
+| `navigate_to_pose` | action | `nav2_msgs/action/NavigateToPose` | decision_node → Nav2 |
+| `/cmd_vel_nav` | topic | `geometry_msgs/TwistStamped` | Nav2 controller → velocity_smoother (20 Hz) |
+| `/cmd_vel_smoothed` | topic | `geometry_msgs/TwistStamped` | velocity_smoother → collision_monitor |
+| `/cmd_vel` | topic | `geometry_msgs/TwistStamped` | collision_monitor → 스월브 컨트롤러. linear.x, linear.y, angular.z 사용 |
+| `/cmd/manual/cmd_vel` | topic | `geometry_msgs/TwistStamped` | (선택) 수동 조작 → twist_mux. 쓰면 Nav2와 velocity_smoother 사이에 들어감 |
+| `/map` | topic | `nav_msgs/OccupancyGrid` | map_server → Nav2 (transient local) |
+| (가) infra1·infra2 영상, camera_info | topic | `sensor_msgs/Image`, `sensor_msgs/CameraInfo` | realsense2_camera(전면) → visual_slam |
+| (가) `/visual_slam/tracking/odometry` | topic | `nav_msgs/Odometry` | visual_slam → 받는 쪽 [미정]. TF 발행자 [미정] |
+| (나) `/odom` | topic | `nav_msgs/Odometry` | 스월브 컨트롤러 → EKF (TF는 내지 않음) |
+| (나) `/imu` | topic | `sensor_msgs/Imu` | imu broadcaster (OpenCR, 보드 [미정]) → EKF |
+| (나) `/odometry/filtered` + odom → base_link | topic + TF | `nav_msgs/Odometry` | EKF → Nav2 |
+| (나) map → odom | TF | | static_transform_publisher(출발 자세) 또는 AMCL → 모두 |
+
+### 팔 · 안전
+
+| 이름 | 방식 | 타입 | 보내는 쪽 → 받는 쪽 |
+| --- | --- | --- | --- |
+| `/pick_puck` | action | `team_interfaces/action/PickPuck` | decision_node → pick_server |
+| `/arm_controller/follow_joint_trajectory` | action | `control_msgs/action/FollowJointTrajectory` | pick_server → controller_manager (JTC, 팔 component). 접촉 감지 시 pick_server가 취소 |
+| `/gripper_controller/gripper_cmd` | action | `control_msgs/action/GripperCommand` | pick_server → controller_manager (팔 component) |
+
+### 명령 · 상태
+
+| 이름 | 타입 | 보내는 쪽 → 받는 쪽 |
+| --- | --- | --- |
+| `/cmd/e_stop` | `std_msgs/Bool` | 사람 → decision_node |
+| `/cmd/operation_mode` | `std_msgs/String` (AUTO · MANUAL) | 사람 → decision_node |
+| `/state/emergency` | `std_msgs/Bool` | decision_node → 모두 |
+| `/state/operation_mode` | `std_msgs/String` | decision_node → 모두 |
+| `/state/mission_phase` | `std_msgs/String` (IDLE · SURVEY · TRANSPORT · DONE) | decision_node → 모두. perception은 이 값으로 퍽 지도 누적과 손 카메라 처리를 켜고 끔 |
+
+`/state/*` 값은 transient local로 발행해서 늦게 켜진 노드도 현재 상태를 바로 받게 한다.
+
+## 커스텀 메시지 (team_interfaces)
+
+<Callout type="warn" title="초안">
+  아직 회의 중인 초안이다. msg 파일이 바뀌면 모든 팀원이 team_interfaces를 다시 빌드해야 한다.
+</Callout>
+
+밖으로 나가는 인지 결과와 팔 액션만 커스텀으로 만들고, 나머지는 표준 타입을 쓴다.
+
+**PuckMap.msg**
+
+```text
+std_msgs/Header header         # frame_id: map, stamp: 마지막 갱신 시각
+MappedPuck[] pucks
+```
+
+**MappedPuck.msg**
+
+```text
+uint32 id                      # 고유 번호, 임무 내내 유지
+uint8 COLOR_RED=0
+uint8 COLOR_GREEN=1
+uint8 COLOR_BLUE=2
+uint8 color                    # 투표 결과
+uint8 SHAPE_CYLINDER=0
+uint8 SHAPE_BOX=1
+uint8 shape                    # 투표 결과
+bool standing                  # 투표 결과
+geometry_msgs/Point position   # map 기준 m, 가중 평균 (z≈0.08)
+float32 yaw                    # 그리퍼 롤 목표각 (rad)
+float32 position_std           # 위치 불확실도 (m)
+uint16 n_obs                   # 관측 횟수
+builtin_interfaces/Time last_seen
+uint8 STATE_TENTATIVE=0        # 관측 부족
+uint8 STATE_CONFIRMED=1
+uint8 STATE_PICKED=2
+uint8 STATE_LOST=3             # 집기 실패 등으로 사라짐
+uint8 state
+```
+
+**SetPuckState.srv**
+
+```text
+uint32 id
+uint8 state                    # MappedPuck의 STATE_*
+---
+bool success
+string message
+```
+
+**TowerLight.msg**
+
+```text
+std_msgs/Header header
+bool detected                  # 경광등이 보이는지
+bool red                       # 칸별 켜짐 (전부 false면 꺼짐)
+bool amber
+bool green
+geometry_msgs/Point position   # 경광등 위치
+float32 confidence
+```
+
+**HandTarget.msg**
+
+```text
+std_msgs/Header header
+bool detected
+float32 err_x                  # 화면 중심 오차 (-1~1)
+float32 err_y
+float32 yaw                    # 최종 롤 보정값 (rad)
+float32 distance               # 퍽 폭 3cm로 추정 (m)
+uint8 shape
+uint8 color                    # 손 카메라로 색 재확인
+bool standing
+```
+
+**PickPuck.action**
+
+```text
+# Goal
+uint32 puck_id
+geometry_msgs/PointStamped target
+float32 yaw
+uint8 MODE_PICK=0
+uint8 MODE_PLACE=1
+uint8 mode
+---
+# Result
+bool success
+uint8 REASON_NONE=0
+uint8 REASON_NOT_SEEN=1        # 손 카메라에 안 보임
+uint8 REASON_EMPTY_GRIP=2      # 빈손
+uint8 REASON_UNREACHABLE=3
+uint8 REASON_CONTACT=4         # 팔 접촉 감지
+uint8 reason
+---
+# Feedback
+uint8 STAGE_APPROACH=0
+uint8 STAGE_ALIGN=1
+uint8 STAGE_GRASP=2
+uint8 STAGE_LIFT=3
+uint8 STAGE_STOW=4
+uint8 stage
+```
+
+## 통신 규칙
+
+받는 쪽이 '안 보임'과 '노드 고장'을 구분할 수 있도록, 인지 토픽은 결과가 없어도 항상 발행한다.
+
+| 토픽 | 발행 주기 | 결과가 없을 때 | QoS |
+| --- | --- | --- | --- |
+| 카메라 영상 | 약 15-30 Hz | | SensorData (best effort) |
+| `/perception/puck_map` | 목록이 바뀔 때 + 주기적(약 1 Hz) | 빈 배열 | reliable, depth 1, transient local |
+| `/perception/tower_light` | 프레임마다, 최근 N프레임 기준 | `detected: false` | reliable, depth 1, transient local |
+| `/perception/hand_target` | 프레임마다 | `detected: false` | reliable, depth 1 |
+
+- 받는 쪽은 보내는 쪽 QoS에 맞춰야 한다. 맞지 않으면 에러 없이 메시지가 안 온다.
+- 받는 쪽은 `header.stamp`를 보고, 예를 들어 0.5초 넘게 새 메시지가 없으면 멈추는 처리를 넣는다.
+- 콜백에서는 값만 저장하고, 판단은 타이머에서 최신 값을 보고 내린다.
+
+### 좌표계
+
+- map = 주어진 경기장 지도. 출발 자세를 초기 위치로 넣어 map → odom을 맞춘다.
+- base_link = 차체 중심, 바닥 높이. x는 앞, y는 왼쪽, 단위는 m와 rad (REP-103).
+- 퍽 지도와 신호등 위치는 map 기준, 디버그용 실시간 검출은 base_link 기준.
+- TF는 최신 값이 아니라 영상의 `header.stamp` 시각으로 조회한다.
+- 팔 제어는 TF로 arm_base_link 기준으로 바꾼다. 장착 위치 숫자를 코드에 넣지 않는다(장착 위치 [미정]).
+- 판단은 가까이 간 뒤 해당 퍽의 `position_std`가 기준(초안 1 cm)보다 작아지면 집기 명령을 내린다.
+
+### yaw 범위 규칙
+
+인지가 줄여서 보내고, 팔 제어는 받은 값을 바로 롤 각도로 쓴다.
+
+| 퍽 상태 | 대칭 | 보낼 범위 |
+| --- | --- | --- |
+| 서 있는 원통 | 어느 방향이든 같음 | 0 고정 |
+| 서 있는 직육면체 | 90°마다 | −45°에서 +45° |
+| 누운 원통 · 직육면체 | 180°마다 | −90°에서 +90° |
+
+공통 설정: 모든 노드는 같은 `ROS_DOMAIN_ID`와 같은 RMW 구현을 쓴다. 카메라 노드는 한 곳에서만 실행하고, 컨테이너를 나눌 때는 `--network host --ipc host`를 쓴다.
+
+## 정할 것 · 확인할 것
+
+### 팀원과 합의
+
+- **위치 추정 방식**: (가) cuVSLAM + RealSense / (나) 주어진 지도 + 휠·IMU EKF(부족하면 AMCL 추가). (가)라면 odometry를 받는 쪽과 TF 발행자
+- **검출기 라이선스**: YOLOv8·ultralytics는 AGPL-3.0이다. 저장소 라이선스(현재 MIT)와 함께 결정
+- **팔 장착 위치**: 상면 중앙 / 중심에서 40 mm 앞 (실물 로봇에서 확인 후 확정)
+- **IMU**: 두 OpenCR 중 어느 보드의 내장 IMU를 쓸지
+- **손 카메라 토픽 이름**: 그리퍼 RealSense(realsense2_camera 두 번째 인스턴스)의 토픽 이름
+- **UC-684 사용 여부** (쓴다면 UVC 방식인지, IR 차단 필터가 있는지)
+- 색깔별 목적지 (색마다 정해진 선반인지, QR로 알려주는지)
+- 퍽 개수, 하나씩 옮기는지 적재통에 여러 개 싣는지
+- 출발 위치가 고정인지 (map → odom 초기화)
+- 신호등의 역할: 출발 신호인지, 경로 중간의 정지/통과 신호인지
+- 동적 장애물이 무엇이고 얼마나 빠른지
+- 순회 경유점: 모든 선반이 D435 시야에 들어오는지
+- 퍽 지도 파라미터: 합치는 범위, 확정 관측 횟수
+- 스월브 컨트롤러 구현: ros2_control 플러그인 직접 작성 / 기존 패키지
+- 팔 동작: pick_server 자체 IK / MoveIt, PickPuck.action 확정
+- twist_mux를 쓸지 (수동 조작 테스트용)
+- 경광등을 D435로 볼지, 손 카메라를 들어 올려서 볼지
+- QR을 어느 카메라로 읽을지
+- D435 emitter: 켜는 쪽 추천 (장애물 감지·depth 보정)
+- 옆·뒤 감지: 회전 후 이동으로 제한 / 예비 RealSense
+- D435 기울기 (일단 10°로 테스트, 값은 URDF에만)
+- 손 카메라를 롤 관절 앞에 달지 뒤에 달지 (앞 추천)
+- HandTarget 오차 단위, yaw 범위 규칙
+- `ROS_DOMAIN_ID`, RMW 구현, 컨테이너 구성
+
+### 하드웨어 · 규정 확인
+
+- 대회 세부 규칙 확정 (임무 흐름, 경광등·QR 관련 가정 확인)
+- 경광등 단수, 깜빡임 여부, 전부 꺼짐의 의미, 높이와 거리
+- 선반 깊이 (과제 도면)
+- 그리퍼 거리 센서 종류와 연결 위치 (OpenCR / Jetson)
+- OpenCR 2대(팔 6 + 스월브 8) 기준 전원 확인
+- Raspberry Pi 4 역할 (안 쓰면 제외)
+- 적재통 위치와 배출 모터
+
+## 참고
+
+- 기준 자료: 2026-10-19 회의에 팀원이 가져온 제안서 「NZ2 로봇 노드·토픽 정리」
+- ROS 2 개념: 전체 아키텍처 (@dooboostore)
+- 메시지 정의: ros2/common_interfaces, vision_msgs, control_msgs, nav2_msgs

@@ -2,6 +2,21 @@ import { useState } from 'preact/hooks';
 
 // ROS 2 노드·토픽 구조도. 좌표는 글에서 직접 지정한다(노드 수가 적고 배치가 의미를 가지므로 자동 배치하지 않는다).
 
+type Kind = 'topic' | 'service' | 'action' | 'hardware';
+
+export interface Topic {
+  name: string;
+  type: string;
+  note?: string;
+}
+
+/** 화살표로 그리지 않고 노드 세부에만 보이는 토픽(디버그용, 받는 쪽 미정 등) */
+export interface ExtraTopic extends Topic {
+  dir: 'in' | 'out';
+  kind?: Kind;
+  peer: string;
+}
+
 export interface GraphNode {
   id: string;
   label: string;
@@ -10,7 +25,7 @@ export interface GraphNode {
   lines: string[];
   /** 세부 패널에 보이는 전체 역할 */
   role: string;
-  kind: 'node' | 'hardware';
+  kind: 'node' | 'hardware' | 'external';
   owner?: string;
   origin?: string;
   note?: string;
@@ -18,6 +33,9 @@ export interface GraphNode {
   color: string;
   /** 이 노드가 속한 그룹 id. 그룹에서 나가는 토픽은 그룹 안 노드가 보내는 것으로 본다. */
   group?: string;
+  /** 후보 전환용. 'none'이면 아무 후보도 고르지 않았을 때만 보인다. */
+  mode?: string;
+  extra?: ExtraTopic[];
   x: number;
   y: number;
   w: number;
@@ -32,6 +50,16 @@ export interface GraphGroup {
   h: number;
 }
 
+/** 계층 띠. 노드 뒤에 깔리는 배경과 이름표 */
+export interface GraphBand {
+  label: string;
+  sub?: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface GraphBus {
   id: string;
   label: string;
@@ -39,31 +67,35 @@ export interface GraphBus {
   y: number;
   w: number;
   h: number;
-}
-
-export interface Topic {
-  name: string;
-  type: string;
-  note?: string;
+  vertical?: boolean;
 }
 
 export interface GraphEdge {
   id: string;
   from: string;
   to: string;
-  kind: 'topic' | 'action' | 'hardware';
+  kind: Kind;
   topics: Topic[];
   /** 화살표 경로 꼭짓점. 마지막 점이 화살촉 위치다. */
   points: [number, number][];
   both?: boolean;
   note?: string;
+  mode?: string;
+}
+
+export interface GraphMode {
+  id: string;
+  label: string;
 }
 
 interface Props {
   nodes: GraphNode[];
   edges: GraphEdge[];
   groups?: GraphGroup[];
+  bands?: GraphBand[];
   bus?: GraphBus;
+  modes?: GraphMode[];
+  modeLabel?: string;
   width: number;
   height: number;
   caption?: string;
@@ -71,11 +103,24 @@ interface Props {
 
 type Selection = { type: 'node' | 'edge' | 'bus'; id: string } | null;
 
-const NODE_H = 70;
-const KIND_LABEL = { topic: '토픽', action: '액션', hardware: '하드웨어 연결' };
+/** 표 한 줄. 화살표와 노드 세부의 추가 토픽을 같은 모양으로 맞춘다. */
+interface Row extends Topic {
+  kind: Kind;
+  from: string;
+  to: string;
+}
 
-export default function RosGraph({ nodes, edges, groups = [], bus, width, height, caption }: Props) {
+const NODE_H = 70;
+const KIND_LABEL: Record<Kind, string> = { topic: '토픽', service: '서비스', action: '액션', hardware: '하드웨어 연결' };
+const NODE_KIND_LABEL = { hardware: '하드웨어', external: '외부' };
+
+export default function RosGraph({ nodes: allNodes, edges: allEdges, groups = [], bands = [], bus, modes = [], modeLabel, width, height, caption }: Props) {
   const [sel, setSel] = useState<Selection>(null);
+  const [mode, setMode] = useState<string | null>(null);
+
+  const shown = (item: { mode?: string }) => !item.mode || (item.mode === 'none' ? mode === null : item.mode === mode);
+  const nodes = allNodes.filter(shown);
+  const edges = allEdges.filter(shown);
 
   const nameOf = (id: string) =>
     nodes.find((n) => n.id === id)?.label ??
@@ -97,8 +142,8 @@ export default function RosGraph({ nodes, edges, groups = [], bus, width, height
   const nodeActive = (id: string) => {
     if (!sel) return false;
     if (sel.type !== 'edge') return sel.id === id;
-    const edge = edges.find((e) => e.id === sel.id)!;
-    return touches(edge, id);
+    const edge = edges.find((e) => e.id === sel.id);
+    return !!edge && touches(edge, id);
   };
 
   const select = (next: Selection) => setSel(sel && next && sel.type === next.type && sel.id === next.id ? null : next);
@@ -108,29 +153,47 @@ export default function RosGraph({ nodes, edges, groups = [], bus, width, height
       select(next);
     }
   };
+  const changeMode = (next: string | null) => {
+    setMode(next);
+    setSel(null);
+  };
+
+  const legendLabel = (n: GraphNode) => n.owner?.replace(/\s*\(제안\)$/, '') ?? NODE_KIND_LABEL[n.kind as 'hardware' | 'external'];
+  const legend = [...new Map(allNodes.map((n) => [legendLabel(n), n.color])).entries()];
+  const lineKinds = (['topic', 'service', 'action', 'hardware'] as Kind[]).filter((k) => allEdges.some((e) => e.kind === k));
 
   return (
     <figure class="widget ros-graph">
       <ul class="ros-graph-legend" aria-label="범례">
-        {[...new Map(nodes.map((n) => [n.owner ?? '하드웨어', n.color])).entries()].map(([owner, color]) => (
+        {legend.map(([label, color]) => (
           <li>
             <span class="swatch" style={{ background: `var(--cat-${color})` }} aria-hidden="true" />
-            {owner}
+            {label}
           </li>
         ))}
-        <li>
-          <span class="line" aria-hidden="true" />
-          토픽
-        </li>
-        <li>
-          <span class="line action" aria-hidden="true" />
-          액션
-        </li>
-        <li>
-          <span class="line hardware" aria-hidden="true" />
-          하드웨어 연결
-        </li>
+        {lineKinds.map((kind) => (
+          <li>
+            <svg class={`legend-line edge ${kind}`} viewBox="0 0 24 6" aria-hidden="true">
+              <path class="stroke" d="M0,3 H24" />
+            </svg>
+            {KIND_LABEL[kind]}
+          </li>
+        ))}
       </ul>
+
+      {modes.length > 0 && (
+        <div class="ros-graph-modes" role="group" aria-label={modeLabel}>
+          <span>{modeLabel}</span>
+          <button type="button" aria-pressed={mode === null} onClick={() => changeMode(null)}>
+            고르지 않음
+          </button>
+          {modes.map((m) => (
+            <button type="button" aria-pressed={mode === m.id} onClick={() => changeMode(m.id)}>
+              {m.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div class="ros-graph-scroll">
         <svg viewBox={`0 0 ${width} ${height}`} role="group" aria-label="ROS 2 노드·토픽 구조도" class={sel ? 'has-selection' : ''}>
@@ -142,10 +205,20 @@ export default function RosGraph({ nodes, edges, groups = [], bus, width, height
             ))}
           </defs>
 
+          {bands.map((b) => (
+            <g class="band">
+              <rect x={b.x} y={b.y} width={b.w} height={b.h} rx="8" />
+              <text x={b.x + 10} y={b.y + 15}>
+                <tspan class="band-label">{b.label}</tspan>
+                {b.sub && <tspan class="band-sub"> · {b.sub}</tspan>}
+              </text>
+            </g>
+          ))}
+
           {groups.map((g) => (
             <g class="group">
               <rect x={g.x} y={g.y} width={g.w} height={g.h} rx="8" />
-              <text x={g.x + 10} y={g.y + 17}>
+              <text x={g.x + 10} y={g.y + 14}>
                 {g.label}
               </text>
             </g>
@@ -162,7 +235,13 @@ export default function RosGraph({ nodes, edges, groups = [], bus, width, height
               onKeyDown={onKey({ type: 'bus', id: bus.id })}
             >
               <rect x={bus.x} y={bus.y} width={bus.w} height={bus.h} rx="8" />
-              <text x={bus.x + bus.w / 2} y={bus.y + bus.h / 2 + 5} text-anchor="middle">
+              <text
+                x={bus.x + bus.w / 2}
+                y={bus.y + bus.h / 2}
+                text-anchor="middle"
+                dominant-baseline="central"
+                transform={bus.vertical ? `rotate(-90 ${bus.x + bus.w / 2} ${bus.y + bus.h / 2})` : undefined}
+              >
                 {bus.label}
               </text>
             </g>
@@ -234,7 +313,7 @@ export default function RosGraph({ nodes, edges, groups = [], bus, width, height
           <>
             <h4>{bus.label}</h4>
             <p>여러 노드가 함께 주고받는 공통 토픽이다.</p>
-            <TopicTable rows={edges.filter((e) => e.from === bus.id || e.to === bus.id)} nameOf={nameOf} />
+            <TopicTable rows={toRows(edges.filter((e) => e.from === bus.id || e.to === bus.id), nameOf)} />
           </>
         )}
       </div>
@@ -242,6 +321,10 @@ export default function RosGraph({ nodes, edges, groups = [], bus, width, height
       {caption && <figcaption>{caption}</figcaption>}
     </figure>
   );
+}
+
+function toRows(edges: GraphEdge[], nameOf: (id: string) => string): Row[] {
+  return edges.flatMap((e) => e.topics.map((t) => ({ ...t, kind: e.kind, from: nameOf(e.from), to: nameOf(e.to) })));
 }
 
 function NodeDetail({
@@ -257,8 +340,12 @@ function NodeDetail({
 }) {
   const own = edges.filter((e) => touches(e, node.id));
   const ends = [node.id, node.group];
-  const incoming = own.filter((e) => e.kind !== 'hardware' && ends.includes(e.to));
-  const outgoing = own.filter((e) => e.kind !== 'hardware' && ends.includes(e.from));
+  const extra = (dir: 'in' | 'out'): Row[] =>
+    (node.extra ?? [])
+      .filter((t) => t.dir === dir)
+      .map((t) => ({ ...t, kind: t.kind ?? 'topic', from: dir === 'in' ? t.peer : node.label, to: dir === 'out' ? t.peer : node.label }));
+  const incoming = [...toRows(own.filter((e) => e.kind !== 'hardware' && ends.includes(e.to)), nameOf), ...extra('in')];
+  const outgoing = [...toRows(own.filter((e) => e.kind !== 'hardware' && ends.includes(e.from)), nameOf), ...extra('out')];
   const hardware = own.filter((e) => e.kind === 'hardware');
 
   return (
@@ -276,7 +363,7 @@ function NodeDetail({
           </>
         )}
         <dt>구분</dt>
-        <dd>{node.origin ?? '하드웨어'}</dd>
+        <dd>{node.origin ?? NODE_KIND_LABEL[node.kind as 'hardware' | 'external']}</dd>
         {node.note && (
           <>
             <dt>비고</dt>
@@ -286,14 +373,14 @@ function NodeDetail({
       </dl>
       {incoming.length > 0 && (
         <>
-          <h5>받는 토픽</h5>
-          <TopicTable rows={incoming} nameOf={nameOf} peer="from" />
+          <h5>받는 것</h5>
+          <TopicTable rows={incoming} peer="from" />
         </>
       )}
       {outgoing.length > 0 && (
         <>
-          <h5>보내는 토픽</h5>
-          <TopicTable rows={outgoing} nameOf={nameOf} peer="to" />
+          <h5>보내는 것</h5>
+          <TopicTable rows={outgoing} peer="to" />
         </>
       )}
       {hardware.length > 0 && (
@@ -318,38 +405,38 @@ function EdgeDetail({ edge, nameOf }: { edge: GraphEdge; nameOf: (id: string) =>
       <p>
         {nameOf(edge.from)} {edge.both ? '↔' : '→'} {nameOf(edge.to)}
       </p>
-      {edge.topics.length > 0 && <TopicTable rows={[edge]} nameOf={nameOf} />}
+      {edge.topics.length > 0 && <TopicTable rows={toRows([edge], nameOf)} />}
       {edge.note && <p>{edge.note}</p>}
     </>
   );
 }
 
-function TopicTable({ rows, nameOf, peer }: { rows: GraphEdge[]; nameOf: (id: string) => string; peer?: 'from' | 'to' }) {
+function TopicTable({ rows, peer }: { rows: Row[]; peer?: 'from' | 'to' }) {
   return (
     <table>
-        <thead>
+      <thead>
+        <tr>
+          <th>이름</th>
+          <th>방식</th>
+          <th>메시지 형식</th>
+          <th>{peer === 'from' ? '보내는 쪽' : peer === 'to' ? '받는 쪽' : '보내는 쪽 → 받는 쪽'}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
           <tr>
-            <th>{rows.some((r) => r.kind === 'action') ? '토픽 / 액션' : '토픽'}</th>
-            <th>메시지 형식</th>
-            <th>{peer === 'from' ? '보내는 쪽' : peer === 'to' ? '받는 쪽' : '보내는 쪽 → 받는 쪽'}</th>
+            <td>
+              <code>{r.name}</code>
+              {r.note && <span class="note">{r.note}</span>}
+            </td>
+            <td>{KIND_LABEL[r.kind]}</td>
+            <td>
+              <code>{r.type}</code>
+            </td>
+            <td>{peer ? r[peer] : `${r.from} → ${r.to}`}</td>
           </tr>
-        </thead>
-        <tbody>
-          {rows.flatMap((edge) =>
-            edge.topics.map((t) => (
-              <tr>
-                <td>
-                  <code>{t.name}</code>
-                  {t.note && <span class="note">{t.note}</span>}
-                </td>
-                <td>
-                  <code>{t.type}</code>
-                </td>
-                <td>{peer ? nameOf(edge[peer]) : `${nameOf(edge.from)} → ${nameOf(edge.to)}`}</td>
-              </tr>
-            )),
-          )}
-        </tbody>
+        ))}
+      </tbody>
     </table>
   );
 }
