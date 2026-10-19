@@ -18,13 +18,11 @@ export const nodes = [
   { id: 'puck_detector', label: 'puck_detector', lines: ['퍽 색·형상·자세 인식,', '로봇 기준 3D 위치 계산'], role: '퍽 색·형상·자세 인식, 로봇 기준 3D 위치 계산', kind: 'node', owner: '인지', origin: '직접 작성', color: 'perception', x: 440, y: 48, w: 190 },
   { id: 'visual_slam', label: 'visual_slam', sublabel: '(cuVSLAM)', lines: ['로봇 위치 추정'], role: '로봇 위치 추정', kind: 'node', owner: '인지', origin: '기존 패키지', note: '11/10 범위 미정', color: 'perception', x: 676, y: 48, w: 196 },
   { id: 'mission_planner', label: 'mission_planner', lines: ['상태 머신, 옮기는 순서,', '이동·집기 지시'], role: '상태 머신, 옮기는 순서, 이동·집기 지시', kind: 'node', owner: '판단', origin: '직접 작성', color: 'nav2', x: 440, y: 160, w: 190 },
-  { id: 'swerve_controller', label: 'swerve_controller', lines: ['속도 명령 → 바퀴 8개 명령,', '주행 거리 계산'], role: '속도 명령 → 바퀴 8개(ID 1~8) 명령, 주행 거리 계산. 스월브용 OpenCR과 통신', kind: 'node', owner: '제어', origin: '직접 작성', color: 'control', group: 'control', x: 170, y: 290, w: 222 },
-  { id: 'ros2_control', label: 'ros2_control', sublabel: '+ dynamixel_hardware_interface', lines: ['팔 관절(ID 11~16) 구동'], role: '팔 관절(ID 11~16) 구동. 팔용 OpenCR과 통신', kind: 'node', owner: '제어', origin: '기존 패키지', color: 'control', group: 'control', x: 170, y: 410, w: 222 },
+  { id: 'swerve_controller', label: 'swerve_controller', lines: ['속도 명령 → 바퀴 8개 명령,', '주행 거리 계산'], role: '속도 명령 → 바퀴 8개(ID 1~8) 명령, 주행 거리 계산. 스월브용 OpenCR과 통신', kind: 'node', owner: '제어', origin: '직접 작성', color: 'control', x: 170, y: 290, w: 222 },
+  { id: 'ros2_control', label: 'ros2_control', sublabel: '+ dynamixel_hardware_interface', lines: ['팔 관절(ID 11~16) 구동'], role: '팔 관절(ID 11~16) 구동. 팔용 OpenCR과 통신', kind: 'node', owner: '제어', origin: '기존 패키지', color: 'control', x: 170, y: 410, w: 222 },
   { id: 'robot_state_publisher', label: 'robot_state_publisher', lines: ['URDF로 부품 좌표(TF) 발행'], role: 'URDF로 각 부품 좌표(TF) 발행', kind: 'node', owner: '테크리드', origin: '기존 패키지', color: 'project', x: 676, y: 290, w: 196 },
   { id: 'move_group', label: 'move_group', sublabel: '(MoveIt)', lines: ['팔 경로 계획(IK)'], role: '팔 경로 계획(IK)', kind: 'node', owner: '판단', origin: '기존 패키지', color: 'nav2', x: 440, y: 410, w: 190 },
 ];
-
-export const groups = [{ id: 'control', label: '제어 노드', x: 158, y: 262, w: 246, h: 230 }];
 
 export const bus = { id: 'all', label: '모든 노드', x: 158, y: 520, w: 714, h: 44 };
 
@@ -38,12 +36,25 @@ export const edges = [
       { name: '/camera/camera/color/camera_info', type: 'sensor_msgs/CameraInfo', note: '3D 복원용' },
     ],
   },
+  {
+    id: 'camera-infra', from: 'realsense2_camera', to: 'visual_slam', kind: 'topic', points: [[300, 48], [300, 26], [774, 26], [774, 48]],
+    topics: [
+      { name: '/camera/camera/infra1/image_rect_raw', type: 'sensor_msgs/Image', note: '적외선 스테레오 (왼쪽)' },
+      { name: '/camera/camera/infra2/image_rect_raw', type: 'sensor_msgs/Image', note: '적외선 스테레오 (오른쪽)' },
+      { name: '/camera/camera/infra1/camera_info', type: 'sensor_msgs/CameraInfo' },
+      { name: '/camera/camera/infra2/camera_info', type: 'sensor_msgs/CameraInfo' },
+    ],
+  },
+  { id: 'vslam-odom', from: 'visual_slam', to: 'mission_planner', kind: 'topic', points: [[690, 118], [690, 168], [630, 168]], topics: [{ name: '/visual_slam/tracking/odometry', type: 'nav_msgs/Odometry' }] },
   { id: 'pucks', from: 'puck_detector', to: 'mission_planner', kind: 'topic', points: [[535, 118], [535, 160]], topics: [{ name: '/perception/pucks', type: 'vision_msgs/Detection3DArray', note: '퍽 종류는 class_id, 위치는 pose' }] },
   { id: 'cmd-vel', from: 'mission_planner', to: 'swerve_controller', kind: 'topic', points: [[440, 190], [412, 190], [412, 315], [392, 315]], topics: [{ name: '/cmd_vel', type: 'geometry_msgs/Twist', note: '스월브라 linear.y도 사용' }] },
   { id: 'odom', from: 'swerve_controller', to: 'mission_planner', kind: 'topic', points: [[392, 340], [426, 340], [426, 205], [440, 205]], topics: [{ name: '/odom', type: 'nav_msgs/Odometry' }] },
-  { id: 'joint-states-rsp', from: 'control', to: 'robot_state_publisher', kind: 'topic', points: [[404, 352], [676, 352]], topics: [{ name: '/joint_states', type: 'sensor_msgs/JointState' }] },
-  { id: 'joint-states-moveit', from: 'control', to: 'move_group', kind: 'topic', points: [[404, 432], [440, 432]], topics: [{ name: '/joint_states', type: 'sensor_msgs/JointState' }] },
-  { id: 'arm-trajectory', from: 'move_group', to: 'ros2_control', kind: 'action', points: [[440, 462], [392, 462]], topics: [{ name: '팔 명령', type: 'control_msgs/FollowJointTrajectory', note: '액션' }], note: '받는 쪽은 ros2_control의 팔 컨트롤러다.' },
+  { id: 'move-action', from: 'mission_planner', to: 'move_group', kind: 'action', points: [[535, 230], [535, 410]], topics: [{ name: '/move_action', type: 'moveit_msgs/action/MoveGroup', note: '집기·놓기 목표 자세' }] },
+  { id: 'gripper', from: 'mission_planner', to: 'ros2_control', kind: 'action', points: [[470, 230], [470, 390], [330, 390], [330, 410]], topics: [{ name: '그리퍼 열기·닫기', type: 'control_msgs (그리퍼 컨트롤러 액션)', note: 'open_manipulator 패키지 설정을 따름' }] },
+  { id: 'joint-states-swerve', from: 'swerve_controller', to: 'robot_state_publisher', kind: 'topic', points: [[392, 352], [676, 352]], topics: [{ name: '/joint_states', type: 'sensor_msgs/JointState', note: '스월브 조향·바퀴 관절' }] },
+  { id: 'joint-states-arm-rsp', from: 'ros2_control', to: 'robot_state_publisher', kind: 'topic', points: [[392, 420], [404, 420], [404, 374], [706, 374], [706, 360]], topics: [{ name: '/joint_states', type: 'sensor_msgs/JointState', note: '팔 관절 (joint_state_broadcaster)' }] },
+  { id: 'joint-states-arm-moveit', from: 'ros2_control', to: 'move_group', kind: 'topic', points: [[392, 440], [440, 440]], topics: [{ name: '/joint_states', type: 'sensor_msgs/JointState', note: '팔 관절만' }] },
+  { id: 'arm-trajectory', from: 'move_group', to: 'ros2_control', kind: 'action', points: [[440, 465], [392, 465]], topics: [{ name: '팔 명령', type: 'control_msgs/FollowJointTrajectory', note: '액션' }], note: '받는 쪽은 ros2_control의 팔 컨트롤러다.' },
   { id: 'hw-swerve', from: 'swerve_controller', to: 'hw-opencr2', kind: 'hardware', both: true, topics: [], points: [[170, 325], [130, 325]] },
   { id: 'hw-arm', from: 'ros2_control', to: 'hw-opencr1', kind: 'hardware', both: true, topics: [], points: [[170, 445], [130, 445]] },
   {
@@ -53,8 +64,8 @@ export const edges = [
       { name: '/tf_static', type: 'tf2_msgs/TFMessage' },
     ],
   },
-  { id: 'mission-status', from: 'mission_planner', to: 'all', kind: 'topic', points: [[630, 180], [658, 180], [658, 520]], topics: [{ name: '/mission/status', type: 'std_msgs/String', note: '현재 상태' }] },
-  { id: 'diagnostics', from: 'all', to: 'mission_planner', kind: 'topic', points: [[644, 520], [644, 200], [630, 200]], topics: [{ name: '/diagnostics', type: 'diagnostic_msgs/DiagnosticArray', note: '장애 감지' }] },
+  { id: 'mission-status', from: 'mission_planner', to: 'all', kind: 'topic', points: [[630, 185], [658, 185], [658, 520]], topics: [{ name: '/mission/status', type: 'std_msgs/String', note: '현재 상태' }] },
+  { id: 'diagnostics', from: 'all', to: 'mission_planner', kind: 'topic', points: [[644, 520], [644, 210], [630, 210]], topics: [{ name: '/diagnostics', type: 'diagnostic_msgs/DiagnosticArray', note: '장애 감지' }] },
 ];
 
 <Callout type="warn" title="제안 초안 (2026-10-19)">
@@ -79,7 +90,6 @@ KANT PA1 LV2 프로젝트2 **팀NZ2**의 로봇은 RGB 퍽을 선반에서 선�
   client:visible
   nodes={nodes}
   edges={edges}
-  groups={groups}
   bus={bus}
   width={884}
   height={580}
