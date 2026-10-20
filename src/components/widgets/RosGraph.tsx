@@ -25,7 +25,7 @@ export interface GraphNode {
   lines: string[];
   /** 세부 패널에 보이는 전체 역할 */
   role: string;
-  kind: 'node' | 'hardware' | 'external';
+  kind: 'node' | 'hardware' | 'external' | 'exit';
   owner?: string;
   origin?: string;
   note?: string;
@@ -36,14 +36,22 @@ export interface GraphNode {
   /** 후보 전환용. 'none'이면 아무 후보도 고르지 않았을 때만 보인다. */
   mode?: string;
   extra?: ExtraTopic[];
+  /** 있으면 누를 때 세부 패널 대신 이 주소로 이동한다(다른 파트 페이지 등). */
+  href?: string;
+  /** 이름 오른쪽에 붙는 작은 표시(예: 대표 노드) */
+  badge?: string;
   x: number;
   y: number;
   w: number;
+  h?: number;
 }
 
 export interface GraphGroup {
   id: string;
   label: string;
+  href?: string;
+  /** tokens.css의 --cat-* 이름. 있으면 테두리를 이 색으로 그린다. */
+  color?: string;
   x: number;
   y: number;
   w: number;
@@ -112,7 +120,7 @@ interface Row extends Topic {
 
 const NODE_H = 70;
 const KIND_LABEL: Record<Kind, string> = { topic: '토픽', service: '서비스', action: '액션', hardware: '하드웨어 연결' };
-const NODE_KIND_LABEL = { hardware: '하드웨어', external: '외부' };
+const NODE_KIND_LABEL = { hardware: '하드웨어', external: '외부', exit: '다른 파트' };
 
 export default function RosGraph({ nodes: allNodes, edges: allEdges, groups = [], bands = [], bus, modes = [], modeLabel, width, height, caption }: Props) {
   const [sel, setSel] = useState<Selection>(null);
@@ -158,8 +166,8 @@ export default function RosGraph({ nodes: allNodes, edges: allEdges, groups = []
     setSel(null);
   };
 
-  const legendLabel = (n: GraphNode) => n.owner?.replace(/\s*\(제안\)$/, '') ?? NODE_KIND_LABEL[n.kind as 'hardware' | 'external'];
-  const legend = [...new Map(allNodes.map((n) => [legendLabel(n), n.color])).entries()];
+  const legendLabel = (n: GraphNode) => n.owner?.replace(/\s*\(제안\)$/, '') ?? NODE_KIND_LABEL[n.kind as 'hardware' | 'external' | 'exit'];
+  const legend = [...new Map(allNodes.filter((n) => n.kind !== 'exit').map((n) => [legendLabel(n), n.color])).entries()];
   const lineKinds = (['topic', 'service', 'action', 'hardware'] as Kind[]).filter((k) => allEdges.some((e) => e.kind === k));
 
   return (
@@ -215,14 +223,26 @@ export default function RosGraph({ nodes: allNodes, edges: allEdges, groups = []
             </g>
           ))}
 
-          {groups.map((g) => (
-            <g class="group">
-              <rect x={g.x} y={g.y} width={g.w} height={g.h} rx="8" />
-              <text x={g.x + 10} y={g.y + 14}>
-                {g.label}
-              </text>
-            </g>
-          ))}
+          {groups.map((g) => {
+            const body = (
+              <>
+                <rect x={g.x} y={g.y} width={g.w} height={g.h} rx="8" />
+                <text x={g.x + 10} y={g.y + 14}>
+                  {g.label}
+                </text>
+              </>
+            );
+            const style = g.color ? { '--group-color': `var(--cat-${g.color})` } : undefined;
+            return g.href ? (
+              <a class={`group is-link${g.color ? ' has-color' : ''}`} href={g.href} style={style} aria-label={`${g.label} 페이지로 이동`}>
+                {body}
+              </a>
+            ) : (
+              <g class={`group${g.color ? ' has-color' : ''}`} style={style}>
+                {body}
+              </g>
+            );
+          })}
 
           {bus && (
             <g
@@ -272,23 +292,20 @@ export default function RosGraph({ nodes: allNodes, edges: allEdges, groups = []
           {nodes.map((n) => {
             const on = nodeActive(n.id);
             const textX = n.x + 14;
+            const h = n.h ?? NODE_H;
             let lineY = n.y + 26;
-            return (
-              <g
-                class={`node ${n.kind}${on ? ' is-active' : ''}`}
-                style={{ '--node-color': `var(--cat-${n.color})` }}
-                tabIndex={0}
-                role="button"
-                aria-pressed={sel?.type === 'node' && sel.id === n.id}
-                aria-label={`${n.label}: ${n.role}`}
-                onClick={() => select({ type: 'node', id: n.id })}
-                onKeyDown={onKey({ type: 'node', id: n.id })}
-              >
-                <rect class="box" x={n.x} y={n.y} width={n.w} height={NODE_H} rx="6" />
-                <rect class="stripe" x={n.x} y={n.y} width="5" height={NODE_H} rx="2" />
+            const body = (
+              <>
+                <rect class="box" x={n.x} y={n.y} width={n.w} height={h} rx="6" />
+                <rect class="stripe" x={n.x} y={n.y} width="5" height={h} rx="2" />
                 <text class="label" x={textX} y={lineY}>
                   {n.label}
                 </text>
+                {n.badge && (
+                  <text class="badge" x={n.x + n.w - 8} y={n.y + 15} text-anchor="end">
+                    {n.badge}
+                  </text>
+                )}
                 {n.sublabel && (
                   <text class="sublabel" x={textX} y={(lineY += 17)}>
                     {n.sublabel}
@@ -299,6 +316,26 @@ export default function RosGraph({ nodes: allNodes, edges: allEdges, groups = []
                     {line}
                   </text>
                 ))}
+              </>
+            );
+            const style = { '--node-color': `var(--cat-${n.color})` };
+            return n.href ? (
+              <a class={`node ${n.kind} is-link${on ? ' is-active' : ''}`} href={n.href} style={style} aria-label={`${n.label}: ${n.role} (페이지로 이동)`}>
+                <title>{`${n.label} 페이지로 이동`}</title>
+                {body}
+              </a>
+            ) : (
+              <g
+                class={`node ${n.kind}${on ? ' is-active' : ''}`}
+                style={style}
+                tabIndex={0}
+                role="button"
+                aria-pressed={sel?.type === 'node' && sel.id === n.id}
+                aria-label={`${n.label}: ${n.role}`}
+                onClick={() => select({ type: 'node', id: n.id })}
+                onKeyDown={onKey({ type: 'node', id: n.id })}
+              >
+                {body}
               </g>
             );
           })}
@@ -363,7 +400,7 @@ function NodeDetail({
           </>
         )}
         <dt>구분</dt>
-        <dd>{node.origin ?? NODE_KIND_LABEL[node.kind as 'hardware' | 'external']}</dd>
+        <dd>{node.origin ?? NODE_KIND_LABEL[node.kind as 'hardware' | 'external' | 'exit']}</dd>
         {node.note && (
           <>
             <dt>비고</dt>

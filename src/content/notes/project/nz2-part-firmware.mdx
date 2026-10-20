@@ -1,0 +1,61 @@
+---
+title: 팀NZ2 세부 구조도 · 펌웨어
+description: 팀NZ2 펌웨어 파트(제어 소유). OpenCR 2대(팔, 스월브)의 보드 모듈과 제어 파트·다이나믹셀과의 연결.
+category: project
+tags: [팀NZ2, 시스템 구조, OpenCR, 펌웨어]
+date: 2026-10-20
+status: 학습중
+draft: false
+---
+
+import RosGraph from '../../../components/widgets/RosGraph';
+
+export const groups = [
+  { id: 'board1', label: 'OpenCR #1 팔 (ID 11-16) · 대표 노드', color: 'control', x: 20, y: 100, w: 400, h: 230 },
+  { id: 'board2', label: 'OpenCR #2 스월브 (ID 1-8) · 대표 노드', color: 'control', x: 460, y: 100, w: 400, h: 230 },
+];
+
+export const boardModules = (board, x0, name) => [
+  { id: `${board}-imu`, label: 'IMU 읽기', lines: ['보드 미정'], role: `${name}: 보드 내장 IMU 읽기. 두 보드 중 어느 쪽 IMU를 쓸지 미정`, kind: 'node', owner: '제어', origin: '미정 (직접 작성 펌웨어 / 통과 모드)', group: board, color: 'control', x: x0, y: 130, w: 180 },
+  { id: `${board}-serial`, label: '시리얼 프로토콜', lines: ['control_master와 통신'], role: `${name}: control_master와 주고받는 시리얼 프로토콜`, kind: 'node', owner: '제어', origin: '미정 (직접 작성 펌웨어 / 통과 모드)', group: board, color: 'control', x: x0 + 190, y: 130, w: 180 },
+  { id: `${board}-motor`, label: '모터 드라이버', lines: ['다이나믹셀 구동'], role: `${name}: 다이나믹셀 모터 구동`, kind: 'node', owner: '제어', origin: '미정 (직접 작성 펌웨어 / 통과 모드)', group: board, color: 'control', x: x0, y: 230, w: 180 },
+  { id: `${board}-watchdog`, label: 'watchdog', lines: ['안전 정지 3단계'], role: `${name}: 안전 정지 3단 중 마지막 단계(펌웨어 watchdog)`, kind: 'node', owner: '제어', origin: '미정 (직접 작성 펌웨어 / 통과 모드)', group: board, color: 'control', x: x0 + 190, y: 230, w: 180 },
+];
+
+export const nodes = [
+  { id: 'exit-control', kind: 'exit', label: '↔ 제어', lines: ['control_master (controller_manager)'], role: '제어 파트의 control_master와 시리얼 통신', href: '../nz2-part-control/', color: 'control', x: 250, y: 20, w: 380, h: 50 },
+  ...boardModules('board1', 30, 'OpenCR #1 팔'),
+  ...boardModules('board2', 470, 'OpenCR #2 스월브'),
+  { id: 'dxl-arm', label: '다이나믹셀 (팔)', lines: ['팔 11-14 · 그리퍼 15 · 롤 16'], role: '팔 다이나믹셀: 팔 ID 11-14, 그리퍼 ID 15, 손목 롤 ID 16', kind: 'hardware', color: 'ros2', x: 110, y: 370, w: 220 },
+  { id: 'dxl-swerve', label: '다이나믹셀 (스월브)', lines: ['ID 1-8'], role: '스월브 다이나믹셀 ID 1-8', kind: 'hardware', color: 'ros2', x: 550, y: 370, w: 220 },
+];
+
+export const edges = [
+  { id: 'serial-1', from: 'exit-control', to: 'board1-serial', kind: 'hardware', both: true, topics: [], points: [[310, 70], [310, 130]], note: '시리얼 통신' },
+  { id: 'serial-2', from: 'exit-control', to: 'board2-serial', kind: 'hardware', both: true, topics: [], points: [[580, 70], [580, 86], [750, 86], [750, 130]], note: '시리얼 통신' },
+  { id: 'motor-1', from: 'board1-motor', to: 'dxl-arm', kind: 'hardware', topics: [], points: [[190, 300], [190, 370]] },
+  { id: 'motor-2', from: 'board2-motor', to: 'dxl-swerve', kind: 'hardware', topics: [], points: [[630, 300], [630, 370]] },
+];
+
+[← 분담 구조도로 돌아가기](../nz2-parts/)
+
+<Callout type="warn" title="펌웨어 방식 미정">
+  각 OpenCR에 직접 작성 펌웨어를 올릴지, 통과 모드로 쓸지 아직 정하지 않았다(초안, 2026-10-20). 가장자리의 출구(↔ 제어)를 누르면 제어 세부 구조도로 이동한다.
+</Callout>
+
+## 세부 구조도
+
+<RosGraph
+  client:visible
+  nodes={nodes}
+  edges={edges}
+  groups={groups}
+  width={880}
+  height={460}
+/>
+
+- 대표 노드는 OpenCR 보드 2대다. 펌웨어는 제어 파트가 맡는다.
+- 각 보드 모듈: 시리얼 프로토콜, 모터 드라이버, watchdog, IMU 읽기(보드 미정).
+- 안전 정지에서 펌웨어는 마지막 3단계인 watchdog을 맡는다.
+
+[← 분담 구조도로 돌아가기](../nz2-parts/)

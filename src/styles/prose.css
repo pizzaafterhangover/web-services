@@ -239,6 +239,36 @@
   stroke-dasharray: 4 3;
 }
 
+.ros-graph .node.exit .box {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+  stroke-dasharray: 5 3;
+}
+
+.ros-graph .node.exit .label {
+  fill: var(--accent);
+}
+
+.ros-graph .node .badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  fill: var(--accent);
+}
+
+.ros-graph a.is-link {
+  cursor: pointer;
+}
+
+.ros-graph a.node.is-link:is(:hover, :focus-visible) .box {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+
+.ros-graph a.group.is-link:is(:hover, :focus-visible) rect {
+  stroke-width: 2.5;
+  stroke-dasharray: none;
+}
+
 .ros-graph .node.external .box {
   stroke-dasharray: 1 3;
   stroke-width: 1.6;
@@ -350,6 +380,12 @@
   fill: none;
   stroke: var(--border-strong);
   stroke-dasharray: 5 4;
+}
+
+.ros-graph .group.has-color rect {
+  stroke: var(--group-color);
+  stroke-dasharray: none;
+  stroke-width: 1.6;
 }
 
 .ros-graph .group text {

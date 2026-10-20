@@ -1,0 +1,81 @@
+---
+title: 팀NZ2 세부 구조도 · 판단
+description: 팀NZ2 판단 파트의 세부 노드와 토픽. planning_master, health_monitor, Nav2, pick_server와 다른 파트로 나가는 출구.
+category: project
+tags: [ROS 2, 팀NZ2, 시스템 구조, Nav2]
+date: 2026-10-20
+status: 학습중
+draft: false
+---
+
+import RosGraph from '../../../components/widgets/RosGraph';
+
+export const nodes = [
+  {
+    id: 'exit-perception', kind: 'exit', label: '↔ 인지', lines: ['퍽 지도 · 경광등 · 손 정렬 · 태그·바코드'], role: '인지 파트와 주고받는 토픽과 서비스', href: '../nz2-part-perception/', color: 'perception', x: 20, y: 20, w: 440, h: 50 },
+  { id: 'exit-all-in', kind: 'exit', label: '← 모든 파트', lines: ['/diagnostics'], role: '모든 파트가 보내는 진단 정보', color: 'ros2', x: 500, y: 20, w: 200, h: 50 },
+  { id: 'exit-all-out', kind: 'exit', label: '→ 모든 파트', lines: ['/state/*'], role: '모든 파트에 보내는 임무 상태', color: 'ros2', x: 20, y: 110, w: 156, h: 50 },
+  {
+    id: 'planning_master', label: 'planning_master', badge: '대표 노드', lines: ['임무 상태 머신, 운반 순서', '/state/* 발행'],
+    role: '판단 파트의 대표 노드. 임무 상태 머신, 운반 순서, /state/* 발행', kind: 'node', owner: '판단', origin: '직접 작성', color: 'nav2', x: 212, y: 110, w: 228,
+  },
+  {
+    id: 'health_monitor', label: 'health_monitor', lines: ['/diagnostics → FAULT 판정'],
+    role: '/diagnostics를 받아 FAULT 판정', kind: 'node', owner: '판단', origin: '직접 작성', note: 'FAULT를 planning_master에 전달하는 방식 미정', color: 'nav2', x: 500, y: 110, w: 200,
+  },
+  {
+    id: 'pick_server', label: 'pick_server', lines: ['IK · 집기 순서 →', '팔 궤적 · 그리퍼 액션'],
+    role: 'IK와 집기 순서를 계획해 팔 궤적·그리퍼 액션을 보낸다', kind: 'node', owner: '판단', origin: '직접 작성', note: 'IK 방식 미정 (자체 IK / MoveIt)', color: 'nav2', x: 20, y: 240, w: 190,
+  },
+  {
+    id: 'nav2', label: 'Nav2', sublabel: '+ map_server', lines: ['경로 계획 → /cmd_vel_nav'],
+    role: '주어진 지도로 경로를 계획하고 /cmd_vel_nav 발행', kind: 'node', owner: '판단', origin: '기존 패키지', color: 'nav2', x: 240, y: 240, w: 200,
+    extra: [{ dir: 'in', name: 'map → odom → base_link', type: 'TF', peer: '인지 (위치 추정)', note: '위치 추정 방식 미정' }],
+  },
+  { id: 'exit-control', kind: 'exit', label: '→ 제어', lines: ['/cmd_vel_nav · 팔 궤적 · 그리퍼 액션'], role: '제어 파트로 보내는 속도 명령과 팔·그리퍼 액션', href: '../nz2-part-control/', color: 'control', x: 20, y: 370, w: 440, h: 50 },
+];
+
+export const edges = [
+  {
+    id: 'perception-in', from: 'exit-perception', to: 'planning_master', kind: 'topic', points: [[300, 70], [300, 110]],
+    topics: [
+      { name: '/perception/puck_map', type: 'team_interfaces/PuckMap' },
+      { name: '/perception/tower_light', type: 'team_interfaces/TowerLight' },
+      { name: 'AprilTag · 바코드 결과', type: '미정', note: '토픽 미정' },
+    ],
+  },
+  {
+    id: 'perception-srv', from: 'planning_master', to: 'exit-perception', kind: 'service', points: [[400, 110], [400, 70]],
+    topics: [{ name: '/perception/puck_map/set_state', type: 'team_interfaces/SetPuckState' }],
+  },
+  { id: 'hand-target', from: 'exit-perception', to: 'pick_server', kind: 'topic', points: [[196, 70], [196, 240]], topics: [{ name: '/perception/hand_target', type: 'team_interfaces/HandTarget' }] },
+  { id: 'diagnostics', from: 'exit-all-in', to: 'health_monitor', kind: 'topic', points: [[600, 70], [600, 110]], topics: [{ name: '/diagnostics', type: 'diagnostic_msgs/DiagnosticArray' }] },
+  { id: 'state', from: 'planning_master', to: 'exit-all-out', kind: 'topic', points: [[212, 135], [176, 135]], topics: [{ name: '/state/*', type: 'std_msgs (Bool · String)', note: 'emergency, operation_mode, mission_phase' }] },
+  { id: 'navigate', from: 'planning_master', to: 'nav2', kind: 'action', points: [[330, 180], [330, 240]], topics: [{ name: 'navigate_to_pose', type: 'nav2_msgs/action/NavigateToPose' }] },
+  { id: 'pick-puck', from: 'planning_master', to: 'pick_server', kind: 'action', points: [[240, 180], [240, 205], [110, 205], [110, 240]], topics: [{ name: '/pick_puck', type: 'team_interfaces/action/PickPuck', note: '초안' }] },
+  { id: 'cmd-vel-nav', from: 'nav2', to: 'exit-control', kind: 'topic', points: [[340, 310], [340, 370]], topics: [{ name: '/cmd_vel_nav', type: 'geometry_msgs/TwistStamped' }] },
+  { id: 'arm-trajectory', from: 'pick_server', to: 'exit-control', kind: 'action', points: [[60, 310], [60, 370]], topics: [{ name: '/arm_controller/follow_joint_trajectory', type: 'control_msgs/action/FollowJointTrajectory' }] },
+  { id: 'gripper-cmd', from: 'pick_server', to: 'exit-control', kind: 'action', points: [[150, 310], [150, 370]], topics: [{ name: '/gripper_controller/gripper_cmd', type: 'control_msgs/action/GripperCommand' }] },
+];
+
+[← 분담 구조도로 돌아가기](../nz2-parts/)
+
+<Callout type="warn" title="초안 (2026-10-20)">
+  확정 전이다. 가장자리의 출구(→ 제어 등)를 누르면 그 파트의 세부 구조도로 이동한다.
+</Callout>
+
+## 세부 구조도
+
+<RosGraph
+  client:visible
+  nodes={nodes}
+  edges={edges}
+  width={720}
+  height={430}
+/>
+
+- 대표 노드 planning_master가 임무 상태 머신과 운반 순서를 맡고, `/state/*`를 발행한다.
+- 장애 판정은 health_monitor가 한다. 안전 정지에서 판단은 1단계인 입력 타임아웃을 맡는다.
+- 위치 추정 TF(map → odom → base_link)는 인지 파트에서 온다.
+
+[← 분담 구조도로 돌아가기](../nz2-parts/)

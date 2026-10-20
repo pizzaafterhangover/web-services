@@ -1,0 +1,115 @@
+---
+title: 팀NZ2 세부 구조도 · 인지
+description: 팀NZ2 인지 파트의 세부 노드와 토픽. perception_master 컨테이너 안의 카메라·검출·퍽 지도·경광등·정렬·AprilTag·바코드 컴포넌트와 위치 추정.
+category: project
+tags: [ROS 2, 팀NZ2, 시스템 구조, RealSense]
+date: 2026-10-20
+status: 학습중
+draft: false
+---
+
+import RosGraph from '../../../components/widgets/RosGraph';
+
+export const groups = [{ id: 'pm', label: 'perception_master · 대표 노드 (컴포넌트 컨테이너)', color: 'perception', x: 10, y: 110, w: 550, h: 325 }];
+
+export const nodes = [
+  { id: 'exit-planning', kind: 'exit', label: '↔ 판단', lines: ['퍽 지도 · 경광등 · 손 정렬 · 태그·바코드 · TF'], role: '판단 파트와 주고받는 토픽과 서비스', href: '../nz2-part-planning/', color: 'nav2', x: 20, y: 20, w: 520, h: 50 },
+  {
+    id: 'localization', label: 'localization', sublabel: '[미정]', lines: ['EKF 또는 visual_slam'],
+    role: '위치 추정. robot_localization(EKF) 또는 visual_slam 중 미정', kind: 'node', owner: '인지', origin: '미정 (기존 패키지 후보)', color: 'perception', x: 580, y: 20, w: 200,
+  },
+  { id: 'exit-control-in', kind: 'exit', label: '← 제어', lines: ['/odom · /imu'], role: '제어 파트에서 들어오는 위치 추정 입력', href: '../nz2-part-control/', color: 'control', x: 580, y: 150, w: 200, h: 50 },
+  { id: 'exit-control-out', kind: 'exit', label: '→ 제어', lines: ['전면 점구름'], role: '제어 파트(collision_monitor)로 보내는 전면 점구름', href: '../nz2-part-control/', color: 'control', x: 580, y: 360, w: 200, h: 50 },
+  {
+    id: 'puck_map', label: 'puck_map', lines: ['퍽 지도', 'set_state 서비스'],
+    role: '/perception/pucks와 TF(영상 시각 기준 base_link → map)로 퍽 지도를 만들어 /perception/puck_map 발행. set_state 서비스 제공',
+    kind: 'node', owner: '인지', origin: '직접 작성', group: 'pm', color: 'perception', x: 20, y: 140, w: 165,
+    extra: [{ dir: 'in', name: 'base_link → map', type: 'TF', peer: '위치 추정 (localization)', note: '영상이 찍힌 시각 기준으로 조회' }],
+  },
+  {
+    id: 'tower_light', label: 'tower_light', lines: ['경광등 판단'],
+    role: '경광등 판단 → /perception/tower_light. 입력은 detector 결과(YOLO 모델 하나가 경광등도 검출)', kind: 'node', owner: '인지', origin: '직접 작성', group: 'pm', color: 'perception', x: 200, y: 140, w: 165,
+  },
+  {
+    id: 'hand_align', label: 'hand_align', lines: ['그리퍼 카메라 정렬'],
+    role: '그리퍼 카메라 영상으로 집기 직전 정렬 → /perception/hand_target', kind: 'node', owner: '인지', origin: '직접 작성', group: 'pm', color: 'perception', x: 380, y: 140, w: 165,
+  },
+  {
+    id: 'detector', label: 'detector', lines: ['YOLO · 두 카메라 · 선반 평면 투영', '→ /perception/pucks (base_link)'],
+    role: 'YOLO 모델 하나로 두 카메라를 처리한다. 프레임별 검출과 선반 평면 투영까지 해서 /perception/pucks(base_link 기준, 투영된 위치)를 발행. 경광등도 같은 모델로 검출',
+    kind: 'node', owner: '인지', origin: '직접 작성', note: '검출기 라이선스 미정 (YOLOv8·ultralytics는 AGPL-3.0)', group: 'pm', color: 'perception', x: 20, y: 245, w: 345,
+  },
+  {
+    id: 'apriltag_detector', label: 'apriltag_detector', lines: ['AprilTag (용도 미정)'],
+    role: 'AprilTag 검출. 입력은 카메라 영상이며 어느 카메라인지, 용도, 출력 토픽은 미정', kind: 'node', owner: '인지', origin: '미정', note: '카메라 미정', group: 'pm', color: 'perception', x: 380, y: 245, w: 165,
+  },
+  {
+    id: 'barcode_reader', label: 'barcode_reader', lines: ['바코드 (용도 미정)'],
+    role: '바코드 읽기. 입력은 카메라 영상이며 어느 카메라인지, 용도, 출력 토픽은 미정', kind: 'node', owner: '인지', origin: '미정', note: '카메라 미정', group: 'pm', color: 'perception', x: 20, y: 350, w: 165,
+  },
+  {
+    id: 'rs-grip', label: 'realsense2_camera', sublabel: '(그리퍼) 권장(미정)', lines: ['그리퍼 영상'],
+    role: '그리퍼 RealSense 드라이버. perception_master 컨테이너 안 컴포넌트로 두는 것을 권장(미정)', kind: 'node', owner: '인지', origin: '기존 패키지', note: '그리퍼 카메라 토픽 이름 미정', group: 'pm', color: 'perception', x: 200, y: 350, w: 165,
+  },
+  {
+    id: 'rs-front', label: 'realsense2_camera', sublabel: '(전면) 권장(미정)', lines: ['컬러 · depth · 점구름'],
+    role: '전면 D435 드라이버. perception_master 컨테이너 안 컴포넌트로 두는 것을 권장(미정)', kind: 'node', owner: '인지', origin: '기존 패키지', group: 'pm', color: 'perception', x: 380, y: 350, w: 165,
+  },
+  { id: 'hw-grip', label: 'RealSense', lines: ['그리퍼'], role: 'RealSense (그리퍼 장착)', kind: 'hardware', color: 'ros2', x: 200, y: 465, w: 165 },
+  { id: 'hw-front', label: 'RealSense', lines: ['전면 (D435)'], role: 'RealSense D435 (차체 전면)', kind: 'hardware', color: 'ros2', x: 380, y: 465, w: 165 },
+];
+
+export const edges = [
+  { id: 'hw-grip', from: 'hw-grip', to: 'rs-grip', kind: 'hardware', topics: [], points: [[282, 465], [282, 420]] },
+  { id: 'hw-front', from: 'hw-front', to: 'rs-front', kind: 'hardware', topics: [], points: [[462, 465], [462, 420]] },
+  {
+    id: 'front-images', from: 'rs-front', to: 'detector', kind: 'topic', points: [[392, 350], [392, 332], [330, 332], [330, 315]],
+    topics: [
+      { name: '/camera/camera/color/image_raw', type: 'sensor_msgs/Image' },
+      { name: '/camera/camera/color/camera_info', type: 'sensor_msgs/CameraInfo', note: '선반 평면 투영' },
+      { name: '/camera/camera/aligned_depth_to_color/image_raw', type: 'sensor_msgs/Image', note: '가까울 때 보정' },
+    ],
+  },
+  { id: 'grip-detector', from: 'rs-grip', to: 'detector', kind: 'topic', points: [[250, 350], [250, 315]], topics: [{ name: '그리퍼 카메라 영상 (이름 미정)', type: 'sensor_msgs/Image' }] },
+  { id: 'grip-hand', from: 'rs-grip', to: 'hand_align', kind: 'topic', points: [[365, 368], [372, 368], [372, 226], [410, 226], [410, 210]], topics: [{ name: '그리퍼 카메라 영상 (이름 미정)', type: 'sensor_msgs/Image' }] },
+  { id: 'pucks', from: 'detector', to: 'puck_map', kind: 'topic', points: [[100, 245], [100, 210]], topics: [{ name: '/perception/pucks', type: 'vision_msgs/Detection3DArray', note: 'base_link 기준, 선반 평면에 투영된 위치' }] },
+  { id: 'light-in', from: 'detector', to: 'tower_light', kind: 'topic', points: [[280, 245], [280, 210]], topics: [{ name: '경광등 검출 결과 (토픽 미정)', type: '미정' }] },
+  { id: 'puck-map', from: 'puck_map', to: 'exit-planning', kind: 'topic', points: [[70, 140], [70, 70]], topics: [{ name: '/perception/puck_map', type: 'team_interfaces/PuckMap' }] },
+  { id: 'set-state', from: 'exit-planning', to: 'puck_map', kind: 'service', points: [[150, 70], [150, 140]], topics: [{ name: '/perception/puck_map/set_state', type: 'team_interfaces/SetPuckState', note: '판단이 요청' }] },
+  { id: 'tower-light', from: 'tower_light', to: 'exit-planning', kind: 'topic', points: [[280, 140], [280, 70]], topics: [{ name: '/perception/tower_light', type: 'team_interfaces/TowerLight' }] },
+  { id: 'hand-target', from: 'hand_align', to: 'exit-planning', kind: 'topic', points: [[460, 140], [460, 70]], topics: [{ name: '/perception/hand_target', type: 'team_interfaces/HandTarget' }] },
+  { id: 'apriltag', from: 'apriltag_detector', to: 'exit-planning', kind: 'topic', points: [[545, 280], [553, 280], [553, 90], [530, 90], [530, 70]], topics: [{ name: 'AprilTag 결과 (토픽 미정)', type: '미정' }] },
+  { id: 'barcode', from: 'barcode_reader', to: 'exit-planning', kind: 'topic', points: [[20, 385], [14, 385], [14, 96], [40, 96], [40, 70]], topics: [{ name: '바코드 결과 (토픽 미정)', type: '미정' }] },
+  { id: 'tf', from: 'localization', to: 'exit-planning', kind: 'topic', points: [[580, 45], [540, 45]], topics: [{ name: 'map → odom → base_link', type: 'TF' }] },
+  {
+    id: 'odom-imu', from: 'exit-control-in', to: 'localization', kind: 'topic', points: [[680, 150], [680, 90]],
+    topics: [
+      { name: '/odom', type: 'nav_msgs/Odometry' },
+      { name: '/imu', type: 'sensor_msgs/Imu', note: 'IMU 보드 미정' },
+    ],
+  },
+  { id: 'points', from: 'rs-front', to: 'exit-control-out', kind: 'topic', points: [[545, 385], [580, 385]], topics: [{ name: '/camera/camera/depth/color/points', type: 'sensor_msgs/PointCloud2', note: '카메라가 2대라 네임스페이스가 바뀔 수 있음' }] },
+];
+
+[← 분담 구조도로 돌아가기](../nz2-parts/)
+
+<Callout type="warn" title="초안 (2026-10-20)">
+  확정 전이다. 가장자리의 출구(↔ 판단 등)를 누르면 그 파트의 세부 구조도로 이동한다.
+</Callout>
+
+## 세부 구조도
+
+<RosGraph
+  client:visible
+  nodes={nodes}
+  edges={edges}
+  groups={groups}
+  width={800}
+  height={545}
+/>
+
+- 대표 노드 perception_master는 영상을 주고받는 컴포넌트를 한 프로세스에 묶는 컨테이너이자, 다른 파트로 나가는 출구다. 카메라 드라이버를 컨테이너 안에 두는 것은 권장이며 아직 정하지 않았다.
+- 선반 평면 투영은 detector 안에서 한다. puck_map은 투영된 /perception/pucks와 TF로 퍽 지도를 만든다.
+- AprilTag·바코드는 입력 카메라, 용도, 출력 토픽이 모두 미정이다.
+
+[← 분담 구조도로 돌아가기](../nz2-parts/)

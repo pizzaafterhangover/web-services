@@ -1,0 +1,125 @@
+---
+title: 팀NZ2 분담 구조도
+description: 팀NZ2 로봇의 ROS 2 구성을 인지·판단·제어·펌웨어·공용 파트로 나누고, 파트 사이에 주고받는 약속만 그린 개요. 파트를 누르면 세부 구조도로 이동한다.
+category: project
+tags: [ROS 2, 팀NZ2, 시스템 구조, 모바일 매니퓰레이터]
+date: 2026-10-20
+status: 학습중
+draft: false
+---
+
+import RosGraph from '../../../components/widgets/RosGraph';
+
+export const groups = [
+  { id: 'part-perception', label: '인지', href: '../nz2-part-perception/', color: 'perception', x: 150, y: 20, w: 300, h: 120 },
+  { id: 'part-planning', label: '판단', href: '../nz2-part-planning/', color: 'nav2', x: 530, y: 20, w: 310, h: 120 },
+  { id: 'part-shared', label: '공용', color: 'project', x: 150, y: 220, w: 300, h: 120 },
+  { id: 'part-control', label: '제어', href: '../nz2-part-control/', color: 'control', x: 530, y: 220, w: 310, h: 120 },
+  { id: 'part-firmware', label: '펌웨어 (제어 소유)', href: '../nz2-part-firmware/', color: 'control', x: 530, y: 400, w: 310, h: 125 },
+];
+
+export const bus = { id: 'all', label: '모든 파트', x: 850, y: 20, w: 24, h: 505, vertical: true };
+
+export const nodes = [
+  { id: 'cams', label: 'RealSense', lines: ['2대: 전면 · 그리퍼'], role: 'RealSense 2대 (차체 전면, 그리퍼)', kind: 'hardware', color: 'ros2', x: 12, y: 50, w: 118 },
+  {
+    id: 'perception_master', label: 'perception_master', badge: '대표 노드', lines: ['퍽 · 경광등 · 태그 · 위치 추정'],
+    role: '인지 파트의 대표 노드(파트 출구, 컴포넌트 컨테이너)', kind: 'node', owner: '인지', color: 'perception', href: '../nz2-part-perception/', x: 170, y: 50, w: 260,
+  },
+  {
+    id: 'planning_master', label: 'planning_master', badge: '대표 노드', lines: ['임무 상태 머신 · 운반 순서'],
+    role: '판단 파트의 대표 노드. 임무 상태 머신, 운반 순서, /state/* 발행', kind: 'node', owner: '판단', color: 'nav2', href: '../nz2-part-planning/', x: 550, y: 50, w: 270,
+  },
+  {
+    id: 'robot_state_publisher', label: 'robot_state_publisher', badge: '대표 노드', lines: ['URDF로 TF 발행'],
+    role: '공용 파트의 대표 노드. URDF와 /joint_states로 TF 발행', kind: 'node', owner: '공용', origin: '기존 패키지', color: 'project', x: 170, y: 250, w: 260,
+  },
+  {
+    id: 'control_master', label: 'control_master', sublabel: '(controller_manager)', badge: '대표 노드', lines: ['스월브 · 팔 · 그리퍼 · 안전'],
+    role: '제어 파트의 대표 노드. controller_manager, hardware component 2개(팔 OpenCR, 스월브 OpenCR)', kind: 'node', owner: '제어', color: 'control', href: '../nz2-part-control/', x: 550, y: 250, w: 270,
+  },
+  {
+    id: 'opencr1', label: 'OpenCR #1', badge: '대표 노드', lines: ['팔 ID 11-16'],
+    role: '팔 OpenCR 펌웨어(다이나믹셀 ID 11-16)', kind: 'node', owner: '제어', color: 'control', href: '../nz2-part-firmware/', x: 545, y: 430, w: 135,
+  },
+  {
+    id: 'opencr2', label: 'OpenCR #2', badge: '대표 노드', lines: ['스월브 ID 1-8'],
+    role: '스월브 OpenCR 펌웨어(다이나믹셀 ID 1-8)', kind: 'node', owner: '제어', color: 'control', href: '../nz2-part-firmware/', x: 690, y: 430, w: 135,
+  },
+  { id: 'dynamixel', label: '다이나믹셀', lines: ['팔 ID 11-16', '스월브 ID 1-8'], role: '다이나믹셀 모터. 팔 ID 11-16, 스월브 ID 1-8', kind: 'hardware', color: 'ros2', x: 320, y: 430, w: 170 },
+];
+
+export const edges = [
+  { id: 'cams', from: 'cams', to: 'perception_master', kind: 'hardware', topics: [], points: [[130, 85], [170, 85]] },
+  {
+    id: 'perception-planning', from: 'perception_master', to: 'planning_master', kind: 'topic', points: [[430, 78], [550, 78]],
+    topics: [
+      { name: '/perception/puck_map', type: 'team_interfaces/PuckMap' },
+      { name: '/perception/tower_light', type: 'team_interfaces/TowerLight' },
+      { name: '/perception/hand_target', type: 'team_interfaces/HandTarget' },
+      { name: 'AprilTag · 바코드 결과', type: '미정', note: '토픽 미정' },
+      { name: 'map → odom → base_link', type: 'TF', note: '위치 추정 (방식 미정)' },
+    ],
+  },
+  {
+    id: 'planning-perception-srv', from: 'planning_master', to: 'perception_master', kind: 'service', points: [[550, 104], [430, 104]],
+    topics: [{ name: '/perception/puck_map/set_state', type: 'team_interfaces/SetPuckState' }],
+  },
+  { id: 'cmd-vel-nav', from: 'planning_master', to: 'control_master', kind: 'topic', points: [[620, 120], [620, 250]], topics: [{ name: '/cmd_vel_nav', type: 'geometry_msgs/TwistStamped' }] },
+  {
+    id: 'arm-actions', from: 'planning_master', to: 'control_master', kind: 'action', points: [[740, 120], [740, 250]],
+    topics: [
+      { name: '/arm_controller/follow_joint_trajectory', type: 'control_msgs/action/FollowJointTrajectory', note: '팔 궤적' },
+      { name: '/gripper_controller/gripper_cmd', type: 'control_msgs/action/GripperCommand', note: '그리퍼' },
+    ],
+  },
+  {
+    id: 'odom-imu', from: 'control_master', to: 'perception_master', kind: 'topic', points: [[550, 275], [490, 275], [490, 170], [400, 170], [400, 120]],
+    topics: [
+      { name: '/odom', type: 'nav_msgs/Odometry', note: '위치 추정 입력' },
+      { name: '/imu', type: 'sensor_msgs/Imu', note: '위치 추정 입력, IMU 보드 미정' },
+    ],
+  },
+  { id: 'points', from: 'perception_master', to: 'control_master', kind: 'topic', points: [[300, 120], [300, 196], [700, 196], [700, 250]], topics: [{ name: '/camera/camera/depth/color/points', type: 'sensor_msgs/PointCloud2', note: '전면 점구름 → collision_monitor. 카메라가 2대라 네임스페이스가 바뀔 수 있음' }] },
+  {
+    id: 'tf', from: 'robot_state_publisher', to: 'all', kind: 'topic', points: [[300, 320], [300, 360], [850, 360]],
+    topics: [
+      { name: '/tf', type: 'tf2_msgs/TFMessage' },
+      { name: '/tf_static', type: 'tf2_msgs/TFMessage' },
+    ],
+  },
+  { id: 'joint-states', from: 'control_master', to: 'robot_state_publisher', kind: 'topic', points: [[550, 300], [430, 300]], topics: [{ name: '/joint_states', type: 'sensor_msgs/JointState' }] },
+  { id: 'serial-arm', from: 'control_master', to: 'opencr1', kind: 'hardware', both: true, topics: [], points: [[600, 320], [600, 430]], note: '시리얼 통신. 직접 작성 펌웨어 / 통과 모드 미정' },
+  { id: 'serial-swerve', from: 'control_master', to: 'opencr2', kind: 'hardware', both: true, topics: [], points: [[760, 320], [760, 430]], note: '시리얼 통신. 직접 작성 펌웨어 / 통과 모드 미정' },
+  { id: 'motor-arm', from: 'opencr1', to: 'dynamixel', kind: 'hardware', topics: [], points: [[545, 465], [490, 465]] },
+  { id: 'motor-swerve', from: 'opencr2', to: 'dynamixel', kind: 'hardware', topics: [], points: [[757, 500], [757, 538], [405, 538], [405, 500]] },
+  { id: 'state', from: 'planning_master', to: 'all', kind: 'topic', points: [[820, 72], [850, 72]], topics: [{ name: '/state/*', type: 'std_msgs (Bool · String)', note: 'emergency, operation_mode, mission_phase' }] },
+  { id: 'diagnostics', from: 'all', to: 'planning_master', kind: 'topic', points: [[850, 100], [820, 100]], topics: [{ name: '/diagnostics', type: 'diagnostic_msgs/DiagnosticArray', note: '장애 판정은 판단(health_monitor)' }] },
+];
+
+<Callout type="warn" title="초안 (2026-10-20)">
+  확정 전이다. 파트별 분담을 기준으로 그린 구조도다.
+</Callout>
+
+## 분담 구조도
+
+파트마다 대표 노드 하나만 보이고, 화살표는 파트 사이에 주고받는 약속만 그린다.
+**파트 상자나 대표 노드를 누르면 그 파트의 세부 구조도로 이동한다.** 화살표를 누르면 주고받는 토픽이 아래에 나온다.
+
+<RosGraph
+  client:visible
+  nodes={nodes}
+  edges={edges}
+  groups={groups}
+  bus={bus}
+  width={884}
+  height={550}
+/>
+
+세부 구조도: [인지](../nz2-part-perception/) · [판단](../nz2-part-planning/) · [제어](../nz2-part-control/) · [펌웨어](../nz2-part-firmware/)
+
+## 원칙
+
+- 파트 안에서는 기능별로 노드를 나누고, 영상을 주고받는 노드는 한 컨테이너에 컴포넌트로 묶어 실행한다.
+- 다른 파트에는 정해진 토픽만 보인다.
+- 장애 판정은 판단(health_monitor)이 한다. 안전 정지는 3단이다: 판단의 입력 타임아웃 → 제어의 명령 타임아웃 → 펌웨어 watchdog.

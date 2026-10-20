@@ -1,0 +1,76 @@
+---
+title: 팀NZ2 세부 구조도 · 제어
+description: 팀NZ2 제어 파트의 세부 노드와 토픽. control_master(controller_manager)와 컨트롤러, 안전 계층, 다른 파트로 나가는 출구.
+category: project
+tags: [ROS 2, 팀NZ2, 시스템 구조, ros2_control]
+date: 2026-10-20
+status: 학습중
+draft: false
+---
+
+import RosGraph from '../../../components/widgets/RosGraph';
+
+export const groups = [{ id: 'cm', label: 'controller_manager 안에서 실행 (control_master가 띄우는 컨트롤러)', color: 'control', x: 10, y: 210, w: 742, h: 222 }];
+
+export const nodes = [
+  { id: 'exit-planning', kind: 'exit', label: '← 판단', lines: ['/cmd_vel_nav · 팔·그리퍼 액션'], role: '판단 파트에서 들어오는 속도 명령과 팔·그리퍼 액션', href: '../nz2-part-planning/', color: 'nav2', x: 220, y: 20, w: 380, h: 50 },
+  { id: 'exit-perception-in', kind: 'exit', label: '← 인지', lines: ['전면 점구름'], role: '인지 파트(realsense2_camera 전면)에서 들어오는 점구름', href: '../nz2-part-perception/', color: 'perception', x: 640, y: 20, w: 220, h: 50 },
+  {
+    id: 'twist_mux', label: 'twist_mux', sublabel: '(선택)', lines: ['수동 조작 시험용'], role: '수동 조작 시험용(선택)',
+    kind: 'node', owner: '제어', origin: '기존 패키지', note: '연결 방식은 이 페이지에서 정하지 않음', color: 'control', x: 20, y: 110, w: 170,
+  },
+  { id: 'velocity_smoother', label: 'velocity_smoother', lines: ['급가속 · 급감속 제한'], role: '급가속·급감속 제한', kind: 'node', owner: '제어', origin: '기존 패키지', color: 'control', x: 440, y: 110, w: 160 },
+  { id: 'collision_monitor', label: 'collision_monitor', lines: ['전면 점구름으로', '감속 · 정지'], role: '전면 점구름으로 감속·정지 구역 검사, 최종 /cmd_vel 발행', kind: 'node', owner: '제어', origin: '기존 패키지', color: 'control', x: 640, y: 110, w: 220 },
+  { id: 'jtc', label: '팔 JTC', lines: ['팔 궤적 실행'], role: '팔 Joint Trajectory Controller. 받은 궤적(각도)대로 실행', kind: 'node', owner: '제어', origin: '기존 패키지', group: 'cm', color: 'control', x: 230, y: 240, w: 150 },
+  { id: 'gripper', label: '그리퍼 컨트롤러', lines: ['열기 · 닫기'], role: '그리퍼 컨트롤러(그리퍼 ID 15)', kind: 'node', owner: '제어', origin: '기존 패키지', group: 'cm', color: 'control', x: 400, y: 240, w: 170 },
+  {
+    id: 'swerve_controller', label: 'swerve_controller', lines: ['/cmd_vel → 8모터', '/odom 발행'], role: '/cmd_vel을 스월브 8모터(ID 1-8) 명령으로 바꾸고 /odom 발행',
+    kind: 'node', owner: '제어', origin: '미정 (직접 작성 / 기존 패키지)', group: 'cm', color: 'control', x: 580, y: 240, w: 164,
+  },
+  { id: 'jsb', label: 'joint_state_broadcaster', lines: ['/joint_states 발행'], role: '관절 상태를 /joint_states로 발행', kind: 'node', owner: '제어', origin: '기존 패키지', group: 'cm', color: 'control', x: 24, y: 330, w: 204 },
+  { id: 'imu_b', label: 'imu_broadcaster', lines: ['/imu 발행 (보드 미정)'], role: 'OpenCR 보드 내장 IMU를 /imu로 발행. 어느 보드인지 미정', kind: 'node', owner: '제어', origin: '기존 패키지', group: 'cm', color: 'control', x: 242, y: 330, w: 172 },
+  {
+    id: 'control_master', label: 'control_master', sublabel: '(controller_manager)', badge: '대표 노드', lines: ['hardware component 2개'],
+    role: '제어 파트의 대표 노드. controller_manager와 hardware component 2개(팔 OpenCR, 스월브 OpenCR)',
+    kind: 'node', owner: '제어', origin: '기존 패키지 (ros2_control)', note: 'hardware component 구현은 OpenCR 펌웨어 방식(직접 작성 / 통과 모드)에 따라 다름, 미정', color: 'control', x: 430, y: 330, w: 310,
+  },
+  { id: 'exit-perception-out', kind: 'exit', label: '→ 인지', lines: ['/odom · /imu'], role: '위치 추정 입력으로 인지 파트에 보냄', href: '../nz2-part-perception/', color: 'perception', x: 770, y: 240, w: 100, h: 50 },
+  { id: 'exit-shared', kind: 'exit', label: '→ 공용', lines: ['robot_state_publisher'], role: '공용 파트(robot_state_publisher)로 보냄', color: 'project', x: 30, y: 460, w: 190, h: 50 },
+  { id: 'exit-firmware', kind: 'exit', label: '↔ 펌웨어', lines: ['시리얼: OpenCR #1 팔 · #2 스월브'], role: '펌웨어 파트(OpenCR 2대)와 시리얼 통신', href: '../nz2-part-firmware/', color: 'control', x: 430, y: 460, w: 310, h: 50 },
+];
+
+export const edges = [
+  { id: 'cmd-vel-nav', from: 'exit-planning', to: 'velocity_smoother', kind: 'topic', points: [[520, 70], [520, 110]], topics: [{ name: '/cmd_vel_nav', type: 'geometry_msgs/TwistStamped', note: 'Nav2 → velocity_smoother' }] },
+  { id: 'arm-trajectory', from: 'exit-planning', to: 'jtc', kind: 'action', points: [[305, 70], [305, 240]], topics: [{ name: '/arm_controller/follow_joint_trajectory', type: 'control_msgs/action/FollowJointTrajectory', note: 'pick_server → 팔 JTC' }] },
+  { id: 'gripper-cmd', from: 'exit-planning', to: 'gripper', kind: 'action', points: [[415, 70], [415, 240]], topics: [{ name: '/gripper_controller/gripper_cmd', type: 'control_msgs/action/GripperCommand', note: 'pick_server → 그리퍼 컨트롤러' }] },
+  { id: 'points', from: 'exit-perception-in', to: 'collision_monitor', kind: 'topic', points: [[750, 70], [750, 110]], topics: [{ name: '/camera/camera/depth/color/points', type: 'sensor_msgs/PointCloud2', note: '전면 점구름. 카메라가 2대라 네임스페이스가 바뀔 수 있음' }] },
+  { id: 'cmd-vel-smoothed', from: 'velocity_smoother', to: 'collision_monitor', kind: 'topic', points: [[600, 145], [640, 145]], topics: [{ name: '/cmd_vel_smoothed', type: 'geometry_msgs/TwistStamped' }] },
+  { id: 'cmd-vel', from: 'collision_monitor', to: 'swerve_controller', kind: 'topic', points: [[700, 180], [700, 240]], topics: [{ name: '/cmd_vel', type: 'geometry_msgs/TwistStamped' }] },
+  { id: 'odom', from: 'swerve_controller', to: 'exit-perception-out', kind: 'topic', points: [[744, 265], [770, 265]], topics: [{ name: '/odom', type: 'nav_msgs/Odometry', note: '위치 추정 입력' }] },
+  { id: 'imu', from: 'imu_b', to: 'exit-perception-out', kind: 'topic', points: [[328, 400], [328, 446], [820, 446], [820, 290]], topics: [{ name: '/imu', type: 'sensor_msgs/Imu', note: '위치 추정 입력, IMU 보드 미정' }] },
+  { id: 'joint-states', from: 'jsb', to: 'exit-shared', kind: 'topic', points: [[125, 400], [125, 460]], topics: [{ name: '/joint_states', type: 'sensor_msgs/JointState' }] },
+  { id: 'serial', from: 'control_master', to: 'exit-firmware', kind: 'hardware', both: true, topics: [], points: [[585, 400], [585, 460]], note: '시리얼 통신. 직접 작성 펌웨어 / 통과 모드 미정' },
+];
+
+[← 분담 구조도로 돌아가기](../nz2-parts/)
+
+<Callout type="warn" title="초안 (2026-10-20)">
+  확정 전이다. 가장자리의 출구(→ 판단 등)를 누르면 그 파트의 세부 구조도로 이동한다.
+</Callout>
+
+## 세부 구조도
+
+<RosGraph
+  client:visible
+  nodes={nodes}
+  edges={edges}
+  groups={groups}
+  width={880}
+  height={520}
+/>
+
+- 대표 노드 control_master(controller_manager)가 hardware component 2개(팔 OpenCR, 스월브 OpenCR)를 맡고, 그 안에서 컨트롤러들이 실행된다.
+- 모든 파트 공통: `/diagnostics`는 판단으로 보내고, `/state/*`는 판단에서 받는다.
+- 안전 정지에서 제어는 2단계인 명령 타임아웃을 맡는다.
+
+[← 분담 구조도로 돌아가기](../nz2-parts/)
