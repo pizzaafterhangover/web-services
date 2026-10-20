@@ -58,7 +58,7 @@ export const edges = [
   { id: 'gripper-cmd', from: 'pick_server', to: 'exit-control', kind: 'action', points: [[150, 310], [150, 370]], topics: [{ name: '/gripper_controller/gripper_cmd', type: 'control_msgs/action/GripperCommand' }] },
 ];
 
-[← 분담 구조도로 돌아가기](../nz2-parts/)
+[← 분담 구조도로 돌아가기](../nz2-parts/#분담-구조도)
 
 <Callout type="warn" title="초안 (2026-10-20)">
   확정 전이다. 가장자리의 출구(→ 제어 등)를 누르면 그 파트의 세부 구조도로 이동한다.
@@ -78,4 +78,4 @@ export const edges = [
 - 장애 판정은 health_monitor가 한다. 안전 정지에서 판단은 1단계인 입력 타임아웃을 맡는다.
 - 위치 추정 TF(map → odom → base_link)는 인지 파트에서 온다.
 
-[← 분담 구조도로 돌아가기](../nz2-parts/)
+[← 분담 구조도로 돌아가기](../nz2-parts/#분담-구조도)
