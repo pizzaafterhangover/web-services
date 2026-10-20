@@ -81,6 +81,8 @@
 }
 
 .prose :where(th, td) {
+  /* 열이 많은 표에서 칸이 글자 단위로 쪼개지지 않게 최소 폭을 두고, 넘치면 표가 가로로 스크롤된다. */
+  min-width: 5.5rem;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border);
   text-align: left;

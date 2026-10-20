@@ -112,4 +112,161 @@ export const edges = [
 - 선반 평면 투영은 detector 안에서 한다. puck_map은 투영된 /perception/pucks와 TF로 퍽 지도를 만든다.
 - AprilTag·바코드는 입력 카메라, 용도, 출력 토픽이 모두 미정이다.
 
+## 노드 목록
+
+대표 노드는 ★로 표시했다. 전체 페이지의 노드 목록에서 이 파트만 옮겼다.
+
+| 노드 | 하는 일 | 구분 |
+| --- | --- | --- |
+| ★ perception_master | 파트 출구이자 컴포넌트 컨테이너 | 직접 작성 |
+| realsense2_camera (전면, 그리퍼) | 전면 D435: 컬러, 정렬된 depth, 점구름(640×480, 15-30 fps, align_depth.enable:=true). 그리퍼: 손 카메라 영상. 컨테이너 안 컴포넌트로 두는 것을 권장(미정) | 기존 패키지 |
+| detector | YOLO 모델 하나로 두 카메라 처리. 프레임별 검출, 선반 평면 투영 → `/perception/pucks`. 경광등도 같은 모델로 검출 | 직접 작성 |
+| puck_map | `/perception/pucks`와 TF로 퍽 지도 → `/perception/puck_map`, set_state 서비스 | 직접 작성 |
+| tower_light | detector 결과로 경광등 판단 → `/perception/tower_light` | 직접 작성 |
+| hand_align | 그리퍼 카메라로 집기 직전 정렬 → `/perception/hand_target` | 직접 작성 |
+| apriltag_detector, barcode_reader | AprilTag 검출, 바코드 읽기. 입력 카메라·용도·출력 토픽 미정 | 미정 |
+| localization | 위치 추정. (가) visual_slam / (나) robot_localization EKF + map → odom(출발 자세 고정값, 필요하면 AMCL) | 미정 |
+
+## 토픽 · 서비스 · 액션
+
+전체 페이지의 표에서 이 파트가 보내거나 받는 것만 옮겼다.
+
+### 파트 안쪽
+
+| 이름 | 방식 | 타입 | 보내는 쪽 → 받는 쪽 | 비고 |
+| --- | --- | --- | --- | --- |
+| `/camera/camera/color/image_raw` | topic | `sensor_msgs/Image` | realsense2_camera(전면) → detector |  |
+| `/camera/camera/color/camera_info` | topic | `sensor_msgs/CameraInfo` | realsense2_camera(전면) → detector (선반 평면 투영) |  |
+| `/camera/camera/aligned_depth_to_color/image_raw` | topic | `sensor_msgs/Image` | realsense2_camera(전면) → detector (가까울 때 보정) |  |
+| 그리퍼 카메라 영상 · camera_info **[미정]** | topic | Image, CameraInfo | realsense2_camera(그리퍼) → detector, hand_align. 이름은 카메라 2대 설정의 네임스페이스에 따름 |  |
+| `/perception/pucks` | topic | `vision_msgs/Detection3DArray` | detector → puck_map | 이번 프레임에 보인 퍽(base_link 기준, 선반 평면에 투영된 위치). class_id는 `"red_cyl"` 형식, bbox 자세에 yaw, bbox 높이로 자세 |
+| 경광등 검출 결과 | topic | 미정 | detector → tower_light | 토픽 미정 |
+| (가) infra1·infra2 영상, camera_info | topic | `sensor_msgs/Image`, `sensor_msgs/CameraInfo` | realsense2_camera(전면) → localization(visual_slam) |  |
+| `/perception/puck_map/markers` | topic | `visualization_msgs/MarkerArray` | 인지 → rviz | 디버그. 퍽 지도를 rviz 지도 위에 표시(색깔별 도형 + ID 글자) |
+| `/perception/debug_image` | topic | `sensor_msgs/Image` | 인지 → rviz | 디버그. 박스를 그린 영상(compressed로 보기) |
+
+### 다른 파트로 나가는 것
+
+| 이름 | 방식 | 타입 | 보내는 쪽 → 받는 쪽 | 비고 |
+| --- | --- | --- | --- | --- |
+| `/perception/puck_map` | topic | `team_interfaces/PuckMap` | puck_map → planning_master | map 기준 퍽 목록. 순회 중 누적하고, 2단계에서 가까이 가면 같은 항목이 정밀하게 갱신됨. ID는 임무 내내 유지 |
+| `/perception/tower_light` | topic | `team_interfaces/TowerLight` | tower_light → planning_master | 칸별 켜짐 bool + 위치. 출처는 전면 또는 그리퍼 RealSense (미정). 규칙 확정 전 가정 |
+| `/perception/hand_target` | topic | `team_interfaces/HandTarget` | hand_align → pick_server | 운반 단계에서 그리퍼 카메라에 퍽이 보이는 동안 |
+| AprilTag · 바코드 결과 | 미정 | 미정 | apriltag_detector, barcode_reader → 판단 | 형식·토픽 미정. 규칙 확정 전 가정 |
+| `/camera/camera/depth/color/points` | topic | `sensor_msgs/PointCloud2` | realsense2_camera(전면) → Nav2 costmap, collision_monitor (10-15 Hz로 다운샘플) |  |
+| (가) `/visual_slam/tracking/odometry` | topic | `nav_msgs/Odometry` | localization(visual_slam) → 받는 쪽 [미정] |  |
+| (나) `/odometry/filtered` + odom → base_link | topic + TF | `nav_msgs/Odometry` | localization(EKF) → Nav2 |  |
+| map → odom | TF |  | (나) static_transform_publisher(출발 자세) 또는 AMCL / (가) 미정 → 모두 |  |
+| `/diagnostics` | topic | `diagnostic_msgs/DiagnosticArray` | 모든 파트 → health_monitor. FAULT를 planning_master로 전달하는 방식 미정 |  |
+
+### 다른 파트에서 들어오는 것
+
+| 이름 | 방식 | 타입 | 보내는 쪽 → 받는 쪽 | 비고 |
+| --- | --- | --- | --- | --- |
+| `/perception/puck_map/set_state` | service | `team_interfaces/SetPuckState` | planning_master → puck_map | 운반 후 PICKED, 집기 실패로 사라지면 LOST |
+| `/odom` | topic | `nav_msgs/Odometry` | swerve_controller → localization (TF는 내지 않음) |  |
+| `/imu` | topic | `sensor_msgs/Imu` | imu_broadcaster (OpenCR, 보드 [미정]) → localization |  |
+| `/state/mission_phase` | topic | `std_msgs/String` (IDLE · SURVEY · TRANSPORT · DONE) | planning_master → 모두. 인지는 이 값으로 퍽 지도 누적과 그리퍼 카메라 처리를 켜고 끔 |  |
+| `/tf_static` | topic | TF2 | robot_state_publisher → 모두. base_link → camera_link, base_link → arm_base_link (값은 URDF에만, 팔 장착 위치 [미정]) |  |
+| `/tf` | topic | TF2 | robot_state_publisher → 모두. 팔 관절에 따라 움직이는 그리퍼 카메라 링크 |  |
+
+## 커스텀 메시지 (team_interfaces)
+
+이 파트가 보내거나 받는 메시지만 옮겼다.
+
+<Callout type="warn" title="초안">
+  아직 회의 중인 초안이다. msg 파일이 바뀌면 모든 팀원이 team_interfaces를 다시 빌드해야 한다.
+</Callout>
+
+**PuckMap.msg**
+
+```text
+std_msgs/Header header         # frame_id: map, stamp: 마지막 갱신 시각
+MappedPuck[] pucks
+```
+
+**MappedPuck.msg**
+
+```text
+uint32 id                      # 고유 번호, 임무 내내 유지
+uint8 COLOR_RED=0
+uint8 COLOR_GREEN=1
+uint8 COLOR_BLUE=2
+uint8 color                    # 투표 결과
+uint8 SHAPE_CYLINDER=0
+uint8 SHAPE_BOX=1
+uint8 shape                    # 투표 결과
+bool standing                  # 투표 결과
+geometry_msgs/Point position   # map 기준 m, 가중 평균 (z≈0.08)
+float32 yaw                    # 그리퍼 롤 목표각 (rad)
+float32 position_std           # 위치 불확실도 (m)
+uint16 n_obs                   # 관측 횟수
+builtin_interfaces/Time last_seen
+uint8 STATE_TENTATIVE=0        # 관측 부족
+uint8 STATE_CONFIRMED=1
+uint8 STATE_PICKED=2
+uint8 STATE_LOST=3             # 집기 실패 등으로 사라짐
+uint8 state
+```
+
+**SetPuckState.srv**
+
+```text
+uint32 id
+uint8 state                    # MappedPuck의 STATE_*
+---
+bool success
+string message
+```
+
+**TowerLight.msg**
+
+```text
+std_msgs/Header header
+bool detected                  # 경광등이 보이는지
+bool red                       # 칸별 켜짐 (전부 false면 꺼짐)
+bool amber
+bool green
+geometry_msgs/Point position   # 경광등 위치
+float32 confidence
+```
+
+**HandTarget.msg**
+
+```text
+std_msgs/Header header
+bool detected
+float32 err_x                  # 화면 중심 오차 (-1~1)
+float32 err_y
+float32 yaw                    # 최종 롤 보정값 (rad)
+float32 distance               # 그리퍼가 RealSense라 depth 사용 가능 (방식 미정)
+uint8 shape
+uint8 color                    # 손 카메라로 색 재확인
+bool standing
+```
+
+## 통신 규칙
+
+| 토픽 | 발행 주기 | 결과가 없을 때 | QoS |
+| --- | --- | --- | --- |
+| 카메라 영상 | 약 15-30 Hz | | SensorData (best effort) |
+| `/perception/puck_map` | 목록이 바뀔 때 + 주기적(약 1 Hz) | 빈 배열 | reliable, depth 1, transient local |
+| `/perception/tower_light` | 프레임마다, 최근 N프레임 기준 | `detected: false` | reliable, depth 1, transient local |
+| `/perception/hand_target` | 프레임마다 | `detected: false` | reliable, depth 1 |
+
+- 받는 쪽이 '안 보임'과 '노드 고장'을 구분할 수 있도록, 인지 토픽은 결과가 없어도 항상 발행한다.
+- **odom → base_link**: localization(인지) 하나만 낸다.
+- **map → odom**: (나) 안이면 출발 자세 고정값 또는 AMCL, (가) 안이면 미정.
+- 퍽 지도와 신호등 위치는 map 기준, 실시간 검출(`/perception/pucks`)은 base_link 기준.
+- TF는 최신 값이 아니라 영상의 `header.stamp` 시각으로 조회한다.
+- 카메라 기울기는 파라미터가 아니라 URDF(camera_link의 pitch) 한 곳에만 둔다.
+
+인지가 줄여서 보내고, 팔 제어는 받은 값을 바로 롤 각도로 쓴다.
+
+| 퍽 상태 | 대칭 | 보낼 범위 |
+| --- | --- | --- |
+| 서 있는 원통 | 어느 방향이든 같음 | 0 고정 |
+| 서 있는 직육면체 | 90°마다 | −45°에서 +45° |
+| 누운 원통 · 직육면체 | 180°마다 | −90°에서 +90° |
+
 [← 분담 구조도로 돌아가기](../nz2-parts/#분담-구조도)

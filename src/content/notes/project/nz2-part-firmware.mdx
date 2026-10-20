@@ -58,4 +58,28 @@ export const edges = [
 - 각 보드 모듈: 시리얼 프로토콜, 모터 드라이버, watchdog, IMU 읽기(보드 미정).
 - 안전 정지에서 펌웨어는 마지막 3단계인 watchdog을 맡는다.
 
+## 노드 목록
+
+대표 노드는 ★로 표시했다. 전체 페이지의 노드 목록에서 이 파트만 옮겼다.
+
+| 노드 | 하는 일 | 구분 |
+| --- | --- | --- |
+| ★ OpenCR #1 팔, ★ OpenCR #2 스월브 | 시리얼 프로토콜, 모터 드라이버, watchdog, IMU 읽기(보드 미정) | 미정 (직접 작성 펌웨어 / 통과 모드) |
+
+## 토픽 · 서비스 · 액션
+
+펌웨어는 ROS 토픽·서비스·액션을 직접 주고받지 않는다. 다른 파트와는 아래처럼 연결된다.
+
+| 연결 | 상대 | 비고 |
+| --- | --- | --- |
+| 시리얼 | 제어: control_master의 hardware component (OpenCR #1 팔, #2 스월브) | 직접 작성 펌웨어 / 통과 모드 미정 |
+| 다이나믹셀 버스 | 다이나믹셀: 팔 ID 11-16(팔 11-14, 그리퍼 15, 손목 롤 16), 스월브 ID 1-8 | |
+| IMU 읽기 | 제어: imu_broadcaster를 거쳐 `/imu` | 어느 보드의 IMU인지 미정 |
+
+## 통신 규칙
+
+- **안전 정지 3단**: planning_master 입력 타임아웃 → control_master 명령 타임아웃 → 펌웨어 watchdog.
+- **control_master(controller_manager)는 하나.** hardware component는 OpenCR별로 2개(팔, 스월브)를 올린다. IMU는 OpenCR 보드 내장 IMU를 쓰고, 어느 보드의 IMU인지는 **[미정]** 이다.
+- 하드웨어 계층(⑤)은 read → update → write를 100 Hz로 돈다.
+
 [← 분담 구조도로 돌아가기](../nz2-parts/#분담-구조도)

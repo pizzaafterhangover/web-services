@@ -78,4 +78,178 @@ export const edges = [
 - 장애 판정은 health_monitor가 한다. 안전 정지에서 판단은 1단계인 입력 타임아웃을 맡는다.
 - 위치 추정 TF(map → odom → base_link)는 인지 파트에서 온다.
 
+## 노드 목록
+
+대표 노드는 ★로 표시했다. 전체 페이지의 노드 목록에서 이 파트만 옮겼다.
+
+| 노드 | 하는 일 | 구분 |
+| --- | --- | --- |
+| ★ planning_master | 임무 상태 머신, 운반 순서, `navigate_to_pose`·`/pick_puck` 액션 전송, `/cmd/*`를 받아 `/state/*`를 발행하는 유일한 노드 | 직접 작성 |
+| health_monitor | `/diagnostics`를 받아 FAULT 판정. planning_master로 전달하는 방식 미정 | 직접 작성 |
+| Nav2 + map_server | 주어진 지도로 경로 계획 → `/cmd_vel_nav`. 전방향 컨트롤러, 전면 점구름 voxel layer로 동적 장애물 | 기존 패키지 |
+| pick_server | pick_puck 액션 서버. 접근 → 정렬 → 파지 → 들기 → 적재/내려놓기를 IK로 계획해 궤적 전송. 실행 중 관절 전류를 감시해 접촉이면 궤적 취소. IK 방식 미정(자체 IK / MoveIt) | 직접 작성 |
+
+## 토픽 · 서비스 · 액션
+
+전체 페이지의 표에서 이 파트가 보내거나 받는 것만 옮겼다.
+
+### 파트 안쪽
+
+| 이름 | 방식 | 타입 | 보내는 쪽 → 받는 쪽 | 비고 |
+| --- | --- | --- | --- | --- |
+| `navigate_to_pose` | action | `nav2_msgs/action/NavigateToPose` | planning_master → Nav2 |  |
+| `/pick_puck` | action | `team_interfaces/action/PickPuck` | planning_master → pick_server |  |
+| `/map` | topic | `nav_msgs/OccupancyGrid` | map_server → Nav2 (transient local) |  |
+
+### 다른 파트로 나가는 것
+
+| 이름 | 방식 | 타입 | 보내는 쪽 → 받는 쪽 | 비고 |
+| --- | --- | --- | --- | --- |
+| `/cmd_vel_nav` | topic | `geometry_msgs/TwistStamped` | Nav2 controller → velocity_smoother (20 Hz) |  |
+| `/arm_controller/follow_joint_trajectory` | action | `control_msgs/action/FollowJointTrajectory` | pick_server → control_master의 팔 JTC. 접촉 감지 시 pick_server가 취소 |  |
+| `/gripper_controller/gripper_cmd` | action | `control_msgs/action/GripperCommand` | pick_server → control_master의 그리퍼 컨트롤러 |  |
+| `/perception/puck_map/set_state` | service | `team_interfaces/SetPuckState` | planning_master → puck_map | 운반 후 PICKED, 집기 실패로 사라지면 LOST |
+| `/state/emergency` | topic | `std_msgs/Bool` | planning_master → 모두 |  |
+| `/state/operation_mode` | topic | `std_msgs/String` | planning_master → 모두 |  |
+| `/state/mission_phase` | topic | `std_msgs/String` (IDLE · SURVEY · TRANSPORT · DONE) | planning_master → 모두. 인지는 이 값으로 퍽 지도 누적과 그리퍼 카메라 처리를 켜고 끔 |  |
+
+### 다른 파트에서 들어오는 것
+
+| 이름 | 방식 | 타입 | 보내는 쪽 → 받는 쪽 | 비고 |
+| --- | --- | --- | --- | --- |
+| `/perception/puck_map` | topic | `team_interfaces/PuckMap` | puck_map → planning_master | map 기준 퍽 목록. 순회 중 누적하고, 2단계에서 가까이 가면 같은 항목이 정밀하게 갱신됨. ID는 임무 내내 유지 |
+| `/perception/tower_light` | topic | `team_interfaces/TowerLight` | tower_light → planning_master | 칸별 켜짐 bool + 위치. 출처는 전면 또는 그리퍼 RealSense (미정). 규칙 확정 전 가정 |
+| `/perception/hand_target` | topic | `team_interfaces/HandTarget` | hand_align → pick_server | 운반 단계에서 그리퍼 카메라에 퍽이 보이는 동안 |
+| AprilTag · 바코드 결과 | 미정 | 미정 | apriltag_detector, barcode_reader → 판단 | 형식·토픽 미정. 규칙 확정 전 가정 |
+| `/camera/camera/depth/color/points` | topic | `sensor_msgs/PointCloud2` | realsense2_camera(전면) → Nav2 costmap, collision_monitor (10-15 Hz로 다운샘플) |  |
+| (나) `/odometry/filtered` + odom → base_link | topic + TF | `nav_msgs/Odometry` | localization(EKF) → Nav2 |  |
+| map → odom | TF |  | (나) static_transform_publisher(출발 자세) 또는 AMCL / (가) 미정 → 모두 |  |
+| `/joint_states` | topic | `sensor_msgs/JointState` | joint_state_broadcaster → robot_state_publisher, pick_server, planning_master |  |
+| `/gripper/range` | topic | `sensor_msgs/Range` | 보내는 쪽 미정(거리 센서를 OpenCR 또는 Jetson 중 어디에 연결할지 미정) → pick_server |  |
+| `/cmd/e_stop` | topic | `std_msgs/Bool` | 사람 → planning_master |  |
+| `/cmd/operation_mode` | topic | `std_msgs/String` (AUTO · MANUAL) | 사람 → planning_master |  |
+| `/diagnostics` | topic | `diagnostic_msgs/DiagnosticArray` | 모든 파트 → health_monitor. FAULT를 planning_master로 전달하는 방식 미정 |  |
+| `/tf_static` | topic | TF2 | robot_state_publisher → 모두. base_link → camera_link, base_link → arm_base_link (값은 URDF에만, 팔 장착 위치 [미정]) |  |
+| `/tf` | topic | TF2 | robot_state_publisher → 모두. 팔 관절에 따라 움직이는 그리퍼 카메라 링크 |  |
+
+## 커스텀 메시지 (team_interfaces)
+
+이 파트가 보내거나 받는 메시지만 옮겼다.
+
+<Callout type="warn" title="초안">
+  아직 회의 중인 초안이다. msg 파일이 바뀌면 모든 팀원이 team_interfaces를 다시 빌드해야 한다.
+</Callout>
+
+**PuckMap.msg**
+
+```text
+std_msgs/Header header         # frame_id: map, stamp: 마지막 갱신 시각
+MappedPuck[] pucks
+```
+
+**MappedPuck.msg**
+
+```text
+uint32 id                      # 고유 번호, 임무 내내 유지
+uint8 COLOR_RED=0
+uint8 COLOR_GREEN=1
+uint8 COLOR_BLUE=2
+uint8 color                    # 투표 결과
+uint8 SHAPE_CYLINDER=0
+uint8 SHAPE_BOX=1
+uint8 shape                    # 투표 결과
+bool standing                  # 투표 결과
+geometry_msgs/Point position   # map 기준 m, 가중 평균 (z≈0.08)
+float32 yaw                    # 그리퍼 롤 목표각 (rad)
+float32 position_std           # 위치 불확실도 (m)
+uint16 n_obs                   # 관측 횟수
+builtin_interfaces/Time last_seen
+uint8 STATE_TENTATIVE=0        # 관측 부족
+uint8 STATE_CONFIRMED=1
+uint8 STATE_PICKED=2
+uint8 STATE_LOST=3             # 집기 실패 등으로 사라짐
+uint8 state
+```
+
+**SetPuckState.srv**
+
+```text
+uint32 id
+uint8 state                    # MappedPuck의 STATE_*
+---
+bool success
+string message
+```
+
+**TowerLight.msg**
+
+```text
+std_msgs/Header header
+bool detected                  # 경광등이 보이는지
+bool red                       # 칸별 켜짐 (전부 false면 꺼짐)
+bool amber
+bool green
+geometry_msgs/Point position   # 경광등 위치
+float32 confidence
+```
+
+**HandTarget.msg**
+
+```text
+std_msgs/Header header
+bool detected
+float32 err_x                  # 화면 중심 오차 (-1~1)
+float32 err_y
+float32 yaw                    # 최종 롤 보정값 (rad)
+float32 distance               # 그리퍼가 RealSense라 depth 사용 가능 (방식 미정)
+uint8 shape
+uint8 color                    # 손 카메라로 색 재확인
+bool standing
+```
+
+**PickPuck.action**
+
+```text
+# Goal
+uint32 puck_id
+geometry_msgs/PointStamped target
+float32 yaw
+uint8 MODE_PICK=0
+uint8 MODE_PLACE=1
+uint8 mode
+---
+# Result
+bool success
+uint8 REASON_NONE=0
+uint8 REASON_NOT_SEEN=1        # 손 카메라에 안 보임
+uint8 REASON_EMPTY_GRIP=2      # 빈손
+uint8 REASON_UNREACHABLE=3
+uint8 REASON_CONTACT=4         # 팔 접촉 감지
+uint8 reason
+---
+# Feedback
+uint8 STAGE_APPROACH=0
+uint8 STAGE_ALIGN=1
+uint8 STAGE_GRASP=2
+uint8 STAGE_LIFT=3
+uint8 STAGE_STOW=4
+uint8 stage
+```
+
+## 통신 규칙
+
+| 토픽 | 발행 주기 | 결과가 없을 때 | QoS |
+| --- | --- | --- | --- |
+| `/perception/puck_map` | 목록이 바뀔 때 + 주기적(약 1 Hz) | 빈 배열 | reliable, depth 1, transient local |
+| `/perception/tower_light` | 프레임마다, 최근 N프레임 기준 | `detected: false` | reliable, depth 1, transient local |
+| `/perception/hand_target` | 프레임마다 | `detected: false` | reliable, depth 1 |
+
+- 받는 쪽은 보내는 쪽 QoS에 맞춰야 한다. 맞지 않으면 에러 없이 메시지가 안 온다.
+- 받는 쪽은 `header.stamp`를 보고, 예를 들어 0.5초 넘게 새 메시지가 없으면 멈추는 처리를 넣는다.
+- 콜백에서는 값만 저장하고, 판단은 타이머에서 최신 값을 보고 내린다.
+- **안전 정지 3단**: planning_master 입력 타임아웃 → control_master 명령 타임아웃 → 펌웨어 watchdog.
+- **map → odom이 나오기 전에는 주행 목표를 보내지 않는다.**
+- 판단은 가까이 간 뒤 해당 퍽의 `position_std`가 기준(초안 1 cm)보다 작아지면 집기 명령을 내린다.
+- `/state/*` 값은 transient local로 발행해서 늦게 켜진 노드도 현재 상태를 바로 받게 한다.
+
 [← 분담 구조도로 돌아가기](../nz2-parts/#분담-구조도)
