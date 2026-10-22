@@ -1,9 +1,10 @@
 ---
 title: 팀NZ2 세부 구조도 · 펌웨어
-description: 팀NZ2 펌웨어 파트(제어 소유). OpenCR 2대(팔, 스월브)의 보드 모듈과 제어 파트·다이나믹셀과의 연결.
+description: 팀NZ2 펌웨어 파트(제어 소유). OpenCR 2대(#1 스월브, #2 팔)의 역할과 제어 파트·다이나믹셀·비상정지 연결.
 category: project
 tags: [팀NZ2, 시스템 구조, OpenCR, 펌웨어]
 date: 2026-10-20
+updated: 2026-10-22
 status: 학습중
 draft: false
 ---
@@ -11,36 +12,42 @@ draft: false
 import RosGraph from '../../../components/widgets/RosGraph';
 
 export const groups = [
-  { id: 'board1', label: 'OpenCR #1 팔 (ID 11-16) · 대표 노드', color: 'control', x: 20, y: 100, w: 400, h: 230 },
-  { id: 'board2', label: 'OpenCR #2 스월브 (ID 1-8) · 대표 노드', color: 'control', x: 460, y: 100, w: 400, h: 230 },
+  { id: 'board1', label: 'OpenCR #1 스월브 (ID 1-8) · 대표 노드', color: 'control', x: 20, y: 100, w: 400, h: 230 },
+  { id: 'board2', label: 'OpenCR #2 팔 (ID 11-16) · 대표 노드', color: 'control', x: 460, y: 100, w: 400, h: 230 },
 ];
 
-export const boardModules = (board, x0, name) => [
-  { id: `${board}-imu`, label: 'IMU 읽기', lines: ['보드 미정'], role: `${name}: 보드 내장 IMU 읽기. 두 보드 중 어느 쪽 IMU를 쓸지 미정`, kind: 'node', owner: '제어', origin: '미정 (직접 작성 펌웨어 / 통과 모드)', group: board, color: 'control', x: x0, y: 130, w: 180 },
-  { id: `${board}-serial`, label: '시리얼 프로토콜', lines: ['control_master와 통신'], role: `${name}: control_master와 주고받는 시리얼 프로토콜`, kind: 'node', owner: '제어', origin: '미정 (직접 작성 펌웨어 / 통과 모드)', group: board, color: 'control', x: x0 + 190, y: 130, w: 180 },
-  { id: `${board}-motor`, label: '모터 드라이버', lines: ['다이나믹셀 구동'], role: `${name}: 다이나믹셀 모터 구동`, kind: 'node', owner: '제어', origin: '미정 (직접 작성 펌웨어 / 통과 모드)', group: board, color: 'control', x: x0, y: 230, w: 180 },
-  { id: `${board}-watchdog`, label: 'watchdog', lines: ['안전 정지 3단계'], role: `${name}: 안전 정지 3단 중 마지막 단계(펌웨어 watchdog)`, kind: 'node', owner: '제어', origin: '미정 (직접 작성 펌웨어 / 통과 모드)', group: board, color: 'control', x: x0 + 190, y: 230, w: 180 },
+export const boardModules = (board, x0, name, bridge) => [
+  { id: `${board}-limit`, label: '전류 · 속도 제한', lines: ['모터 보호'], role: `${name}: 모터 전류·속도 제한`, kind: 'node', owner: '제어', origin: '펌웨어', group: board, color: 'control', x: x0, y: 130, w: 180 },
+  { id: `${board}-serial`, label: 'USB CDC 수신', lines: ['상위 명령 통과'], role: `${name}: ${bridge}의 명령을 USB CDC로 받아 통과시킨다`, kind: 'node', owner: '제어', origin: '펌웨어', group: board, color: 'control', x: x0 + 190, y: 130, w: 180 },
+  { id: `${board}-motor`, label: 'DXL TTL 구동', lines: ['다이나믹셀 버스'], role: `${name}: 다이나믹셀 TTL 버스 구동`, kind: 'node', owner: '제어', origin: '펌웨어', group: board, color: 'control', x: x0, y: 230, w: 180 },
+  { id: `${board}-watchdog`, label: 'watchdog', lines: ['200 ms'], role: `${name}: 상위 명령이 200 ms 동안 없으면 정지. 안전 3중의 2단계`, kind: 'node', owner: '제어', origin: '펌웨어', group: board, color: 'control', x: x0 + 190, y: 230, w: 180 },
 ];
 
 export const nodes = [
-  { id: 'exit-control', kind: 'exit', label: '↔ 제어', lines: ['control_master (controller_manager)'], role: '제어 파트의 control_master와 시리얼 통신', href: '../nz2-part-control/', color: 'control', x: 250, y: 20, w: 380, h: 50 },
-  ...boardModules('board1', 30, 'OpenCR #1 팔'),
-  ...boardModules('board2', 470, 'OpenCR #2 스월브'),
-  { id: 'dxl-arm', label: '다이나믹셀 (팔)', lines: ['팔 11-14 · 그리퍼 15 · 롤 16'], role: '팔 다이나믹셀: 팔 ID 11-14, 그리퍼 ID 15, 손목 롤 ID 16', kind: 'hardware', color: 'ros2', x: 110, y: 370, w: 220 },
-  { id: 'dxl-swerve', label: '다이나믹셀 (스월브)', lines: ['ID 1-8'], role: '스월브 다이나믹셀 ID 1-8', kind: 'hardware', color: 'ros2', x: 550, y: 370, w: 220 },
+  { id: 'exit-control', kind: 'exit', label: '↔ 제어', lines: ['swerve_bridge → #1 · arm_bridge → #2'], role: '제어 파트의 브리지 노드(Jetson)와 USB CDC로 연결', href: '../nz2-part-control/', color: 'control', x: 250, y: 20, w: 380, h: 50 },
+  ...boardModules('board1', 30, 'OpenCR #1 스월브', 'swerve_bridge'),
+  ...boardModules('board2', 470, 'OpenCR #2 팔', 'arm_bridge'),
+  { id: 'dxl-swerve', label: '다이나믹셀 (스월브)', lines: ['구동 1-4 · 조향 5-8'], role: '구동 XM430-W210 ×4(ID 1-4), 조향 XM430-W210 ×4(ID 5-8)', kind: 'hardware', color: 'ros2', x: 110, y: 370, w: 220 },
+  { id: 'relay', label: '12 V 릴레이', lines: ['모터 전원 차단'], role: '12 V 모터 전원 릴레이. 비상정지 스위치가 하드웨어로 끊는다(안전 3중의 3단계)', kind: 'hardware', color: 'ros2', x: 345, y: 370, w: 190 },
+  { id: 'dxl-arm', label: '다이나믹셀 (팔)', lines: ['팔 11-14 · 그리퍼 15 · 롤 16'], role: '팔 XM430-W350 ×4(ID 11-14), 그리퍼 ID 15, 손목 롤 ID 16', kind: 'hardware', color: 'ros2', x: 550, y: 370, w: 220 },
+  { id: 'estop', label: '비상정지 스위치', lines: ['GPIO 보드 [미정]'], role: '비상정지 스위치. 12 V 모터 전원 릴레이를 끊고, OpenCR GPIO를 거쳐 control_master에 /estop을 보낸다(어느 보드인지 미정)', kind: 'hardware', color: 'ros2', x: 345, y: 470, w: 190 },
 ];
 
 export const edges = [
-  { id: 'serial-1', from: 'exit-control', to: 'board1-serial', kind: 'hardware', both: true, topics: [], points: [[310, 70], [310, 130]], note: '시리얼 통신' },
-  { id: 'serial-2', from: 'exit-control', to: 'board2-serial', kind: 'hardware', both: true, topics: [], points: [[580, 70], [580, 86], [750, 86], [750, 130]], note: '시리얼 통신' },
-  { id: 'motor-1', from: 'board1-motor', to: 'dxl-arm', kind: 'hardware', topics: [], points: [[190, 300], [190, 370]] },
-  { id: 'motor-2', from: 'board2-motor', to: 'dxl-swerve', kind: 'hardware', topics: [], points: [[630, 300], [630, 370]] },
+  { id: 'cdc-1', from: 'exit-control', to: 'board1-serial', kind: 'hardware', both: true, topics: [], points: [[310, 70], [310, 130]], note: 'USB CDC: swerve_bridge ↔ OpenCR #1' },
+  { id: 'cdc-2', from: 'exit-control', to: 'board2-serial', kind: 'hardware', both: true, topics: [], points: [[580, 70], [580, 86], [750, 86], [750, 130]], note: 'USB CDC: arm_bridge ↔ OpenCR #2' },
+  { id: 'ttl-1', from: 'board1-motor', to: 'dxl-swerve', kind: 'hardware', topics: [], points: [[190, 300], [190, 370]], note: 'DXL TTL' },
+  { id: 'ttl-2', from: 'board2-motor', to: 'dxl-arm', kind: 'hardware', topics: [], points: [[630, 300], [630, 370]], note: 'DXL TTL' },
+  { id: 'power-1', from: 'relay', to: 'dxl-swerve', kind: 'hardware', topics: [], points: [[345, 405], [330, 405]], note: '12 V 모터 전원' },
+  { id: 'power-2', from: 'relay', to: 'dxl-arm', kind: 'hardware', topics: [], points: [[535, 405], [550, 405]], note: '12 V 모터 전원' },
+  { id: 'estop', from: 'estop', to: 'relay', kind: 'hardware', topics: [], points: [[440, 470], [440, 440]], note: '비상정지: 모터 12 V 전원 차단 (하드웨어)' },
 ];
 
 [← 분담 구조도로 돌아가기](../nz2-parts/#분담-구조도)
 
-<Callout type="warn" title="펌웨어 방식 미정">
-  각 OpenCR에 직접 작성 펌웨어를 올릴지, 통과 모드로 쓸지 아직 정하지 않았다(초안, 2026-10-20). 가장자리의 출구(↔ 제어)를 누르면 제어 세부 구조도로 이동한다.
+<Callout type="warn" title="데이터 플로우 차트 기준 (2026-10-22 반영)">
+  보드 배정을 차트에 맞춰 #1 스월브, #2 팔로 바꿨다. OpenCR은 전류·속도 제한과 200 ms watchdog만 맡고 상위 명령을 통과시킨다. 스월브 역기구학은 Jetson의 swerve_kinematics가 계산한다. IMU는 쓰지 않는다(재검토).
+  가장자리의 출구(↔ 제어)를 누르면 제어 세부 구조도로 이동한다.
 </Callout>
 
 ## 세부 구조도
@@ -51,12 +58,12 @@ export const edges = [
   edges={edges}
   groups={groups}
   width={880}
-  height={460}
+  height={550}
 />
 
 - 대표 노드는 OpenCR 보드 2대다. 펌웨어는 제어 파트가 맡는다.
-- 각 보드 모듈: 시리얼 프로토콜, 모터 드라이버, watchdog, IMU 읽기(보드 미정).
-- 안전 정지에서 펌웨어는 마지막 3단계인 watchdog을 맡는다.
+- 보드마다 USB CDC로 상위 명령을 받아 전류·속도를 제한한 뒤 DXL TTL로 다이나믹셀을 구동하고, 200 ms 동안 명령이 없으면 watchdog이 멈춘다.
+- 안전 3중: control_master(타임아웃 200 ms · E-stop) → OpenCR 펌웨어 watchdog(200 ms) → E-stop 릴레이로 12 V 모터 전원 차단.
 
 ## 노드 목록
 
@@ -64,22 +71,23 @@ export const edges = [
 
 | 노드 | 하는 일 | 구분 |
 | --- | --- | --- |
-| ★ OpenCR #1 팔, ★ OpenCR #2 스월브 | 시리얼 프로토콜, 모터 드라이버, watchdog, IMU 읽기(보드 미정) | 미정 (직접 작성 펌웨어 / 통과 모드) |
+| ★ OpenCR #1 스월브, ★ OpenCR #2 팔 | 전류·속도 제한, 200 ms watchdog, 상위 명령 통과, DXL TTL 구동 |  |
 
 ## 토픽 · 서비스 · 액션
 
-펌웨어는 ROS 토픽·서비스·액션을 직접 주고받지 않는다. 다른 파트와는 아래처럼 연결된다.
+펌웨어는 ROS 토픽·서비스·액션을 직접 주고받지 않는다. 다른 파트·하드웨어와는 아래처럼 연결된다.
 
-| 연결 | 상대 | 비고 |
+| 연결 | 보내는 쪽 → 받는 쪽 | 비고 |
 | --- | --- | --- |
-| 시리얼 | 제어: control_master의 hardware component (OpenCR #1 팔, #2 스월브) | 직접 작성 펌웨어 / 통과 모드 미정 |
-| 다이나믹셀 버스 | 다이나믹셀: 팔 ID 11-16(팔 11-14, 그리퍼 15, 손목 롤 16), 스월브 ID 1-8 | |
-| IMU 읽기 | 제어: imu_broadcaster를 거쳐 `/imu` | 어느 보드의 IMU인지 미정 |
+| USB CDC | swerve_bridge ↔ OpenCR #1 | |
+| USB CDC | arm_bridge ↔ OpenCR #2 | |
+| DXL TTL | OpenCR #1 → 구동 ID 1-4, 조향 ID 5-8 | |
+| DXL TTL | OpenCR #2 → 팔 ID 11-14, 그리퍼 15, 롤 16 | |
+| 12 V 전원 차단 | 비상정지 스위치 → 12 V 모터 전원 릴레이 | 하드웨어 |
 
 ## 통신 규칙
 
-- **안전 정지 3단**: planning_master 입력 타임아웃 → control_master 명령 타임아웃 → 펌웨어 watchdog.
-- **control_master(controller_manager)는 하나.** hardware component는 OpenCR별로 2개(팔, 스월브)를 올린다. IMU는 OpenCR 보드 내장 IMU를 쓰고, 어느 보드의 IMU인지는 **[미정]** 이다.
-- 하드웨어 계층(⑤)은 read → update → write를 100 Hz로 돈다.
+- **안전 3중**: control_master(타임아웃 200 ms · E-stop) → OpenCR 펌웨어 watchdog(200 ms) → E-stop 릴레이로 12 V 모터 전원 차단(하드웨어).
+- **스월브 역기구학은 Jetson에서** 계산한다(swerve_kinematics). OpenCR은 전류·속도 제한과 200 ms watchdog만 맡고, 상위 명령을 통과시킨다.
 
 [← 분담 구조도로 돌아가기](../nz2-parts/#분담-구조도)

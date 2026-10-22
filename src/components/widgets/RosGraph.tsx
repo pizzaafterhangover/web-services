@@ -106,6 +106,8 @@ interface Props {
   modeLabel?: string;
   width: number;
   height: number;
+  /** 노드가 많은 그림은 데스크톱에서도 이 폭(px) 아래로 줄이지 않고 가로로 스크롤한다. */
+  minWidth?: number;
   caption?: string;
 }
 
@@ -122,7 +124,7 @@ const NODE_H = 70;
 const KIND_LABEL: Record<Kind, string> = { topic: '토픽', service: '서비스', action: '액션', hardware: '하드웨어 연결' };
 const NODE_KIND_LABEL = { hardware: '하드웨어', external: '외부', exit: '다른 파트' };
 
-export default function RosGraph({ nodes: allNodes, edges: allEdges, groups = [], bands = [], bus, modes = [], modeLabel, width, height, caption }: Props) {
+export default function RosGraph({ nodes: allNodes, edges: allEdges, groups = [], bands = [], bus, modes = [], modeLabel, width, height, minWidth, caption }: Props) {
   const [sel, setSel] = useState<Selection>(null);
   const [mode, setMode] = useState<string | null>(null);
 
@@ -204,7 +206,13 @@ export default function RosGraph({ nodes: allNodes, edges: allEdges, groups = []
       )}
 
       <div class="ros-graph-scroll">
-        <svg viewBox={`0 0 ${width} ${height}`} role="group" aria-label="ROS 2 노드·토픽 구조도" class={sel ? 'has-selection' : ''}>
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          role="group"
+          aria-label="ROS 2 노드·토픽 구조도"
+          class={sel ? 'has-selection' : ''}
+          style={minWidth ? { minWidth: `${minWidth}px` } : undefined}
+        >
           <defs>
             {['idle', 'on'].map((state) => (
               <marker id={`ros-arrow-${state}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">

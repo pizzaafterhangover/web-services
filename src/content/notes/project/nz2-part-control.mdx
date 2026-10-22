@@ -1,61 +1,94 @@
 ---
 title: 팀NZ2 세부 구조도 · 제어
-description: 팀NZ2 제어 파트의 세부 노드와 토픽. control_master(controller_manager)와 컨트롤러, 안전 계층, 다른 파트로 나가는 출구.
+description: 팀NZ2 제어 파트(Control · Low-level)의 세부 노드와 토픽. control_master를 중심으로 한 속도 체인, 팔 명령, 스월브 역기구학, OpenCR로 가는 브리지.
 category: project
-tags: [ROS 2, 팀NZ2, 시스템 구조, ros2_control]
+tags: [ROS 2, 팀NZ2, 시스템 구조, 제어]
 date: 2026-10-20
+updated: 2026-10-22
 status: 학습중
 draft: false
 ---
 
 import RosGraph from '../../../components/widgets/RosGraph';
 
-export const groups = [{ id: 'cm', label: 'controller_manager 안에서 실행 (control_master가 띄우는 컨트롤러)', color: 'control', x: 10, y: 210, w: 742, h: 222 }];
+export const groups = [
+  { id: 'drive', label: '주행 제어', color: 'control', x: 202, y: 94, w: 396, h: 94 },
+  { id: 'arm', label: '팔 제어', color: 'control', x: 602, y: 94, w: 218, h: 188 },
+];
 
 export const nodes = [
-  { id: 'exit-planning', kind: 'exit', label: '← 판단', lines: ['/cmd_vel_nav · 팔·그리퍼 액션'], role: '판단 파트에서 들어오는 속도 명령과 팔·그리퍼 액션', href: '../nz2-part-planning/', color: 'nav2', x: 220, y: 20, w: 380, h: 50 },
-  { id: 'exit-perception-in', kind: 'exit', label: '← 인지', lines: ['전면 점구름'], role: '인지 파트(realsense2_camera 전면)에서 들어오는 점구름', href: '../nz2-part-perception/', color: 'perception', x: 640, y: 20, w: 220, h: 50 },
+  { id: 'exit-planning', kind: 'exit', label: '↔ 판단', lines: ['/planning/* 결과 → 제어 · /control/status → 판단'], role: '판단 파트와 주고받는 토픽', href: '../nz2-part-planning/', color: 'nav2', x: 210, y: 20, w: 606, h: 50 },
+  { id: 'exit-odom', kind: 'exit', label: '← 인지', lines: ['/odometry/filtered'], role: '인지(ekf_node)에서 들어오는 위치', href: '../nz2-part-perception/', color: 'perception', x: 20, y: 110, w: 170, h: 50 },
+  { id: 'estop', label: '비상정지', lines: ['스위치 (OpenCR GPIO)'], role: '비상정지 스위치. OpenCR GPIO를 거쳐 control_master에 /estop을 보내고, 하드웨어로 12 V 모터 전원 릴레이를 끊는다', kind: 'hardware', color: 'ros2', x: 20, y: 205, w: 170 },
+  { id: 'exit-scan', kind: 'exit', label: '← 인지', lines: ['/scan', '/perception/obstacles'], role: '인지에서 들어오는 장애물 정보', href: '../nz2-part-perception/', color: 'perception', x: 20, y: 395, w: 170, h: 66 },
+  { id: 'exit-wheel', kind: 'exit', label: '→ 인지', lines: ['/wheel/odom (ekf_node)'], role: '인지(ekf_node)로 보내는 휠 오도메트리', href: '../nz2-part-perception/', color: 'perception', x: 20, y: 490, w: 170, h: 50 },
+  { id: 'path_tracker', label: 'path_tracker', lines: ['종(속도 프로파일)', '횡(vy, wz)'], role: '경로 추종. 종 방향 속도 프로파일, 횡 방향 vy·wz 제어', kind: 'node', owner: '제어', origin: '직접 작성', group: 'drive', color: 'control', x: 210, y: 110, w: 180 },
+  { id: 'dock_controller', label: 'dock_controller', lines: ['선반 정밀 접근', '0.05 m/s 이하'], role: '선반 정밀 접근(0.05 m/s 이하)', kind: 'node', owner: '제어', origin: '직접 작성', group: 'drive', color: 'control', x: 410, y: 110, w: 180 },
+  { id: 'gripper_controller', label: 'gripper_controller', lines: ['전류 기반 파지', '성공 판정'], role: '전류 기반 파지, 성공 판정', kind: 'node', owner: '제어', origin: '직접 작성', group: 'arm', color: 'control', x: 610, y: 110, w: 206 },
+  { id: 'arm_trajectory_executor', label: 'arm_trajectory_executor', lines: ['100 Hz 보간 · 관절 제한'], role: '팔 궤적 100 Hz 보간, 관절 제한', kind: 'node', owner: '제어', origin: '직접 작성', group: 'arm', color: 'control', x: 610, y: 205, w: 206 },
   {
-    id: 'twist_mux', label: 'twist_mux', sublabel: '(선택)', lines: ['수동 조작 시험용'], role: '수동 조작 시험용(선택)',
-    kind: 'node', owner: '제어', origin: '기존 패키지', note: '연결 방식은 이 페이지에서 정하지 않음', color: 'control', x: 20, y: 110, w: 170,
+    id: 'control_master', label: 'control_master', badge: '대표 노드', lines: ['모드 MUX · E-stop · 타임아웃 200 ms'],
+    role: '제어 파트의 대표 노드. 주행·팔 명령을 모드에 따라 고르고(MUX), E-stop과 200 ms 타임아웃을 처리', kind: 'node', owner: '제어', origin: '직접 작성', color: 'control', x: 210, y: 205, w: 380,
   },
-  { id: 'velocity_smoother', label: 'velocity_smoother', lines: ['급가속 · 급감속 제한'], role: '급가속·급감속 제한', kind: 'node', owner: '제어', origin: '기존 패키지', color: 'control', x: 440, y: 110, w: 160 },
-  { id: 'collision_monitor', label: 'collision_monitor', lines: ['전면 점구름으로', '감속 · 정지'], role: '전면 점구름으로 감속·정지 구역 검사, 최종 /cmd_vel 발행', kind: 'node', owner: '제어', origin: '기존 패키지', color: 'control', x: 640, y: 110, w: 220 },
-  { id: 'jtc', label: '팔 JTC', lines: ['팔 궤적 실행'], role: '팔 Joint Trajectory Controller. 받은 궤적(각도)대로 실행', kind: 'node', owner: '제어', origin: '기존 패키지', group: 'cm', color: 'control', x: 230, y: 240, w: 150 },
-  { id: 'gripper', label: '그리퍼 컨트롤러', lines: ['열기 · 닫기'], role: '그리퍼 컨트롤러(그리퍼 ID 15)', kind: 'node', owner: '제어', origin: '기존 패키지', group: 'cm', color: 'control', x: 400, y: 240, w: 170 },
-  {
-    id: 'swerve_controller', label: 'swerve_controller', lines: ['/cmd_vel → 8모터', '/odom 발행'], role: '/cmd_vel을 스월브 8모터(ID 1-8) 명령으로 바꾸고 /odom 발행',
-    kind: 'node', owner: '제어', origin: '미정 (직접 작성 / 기존 패키지)', group: 'cm', color: 'control', x: 580, y: 240, w: 164,
-  },
-  { id: 'jsb', label: 'joint_state_broadcaster', lines: ['/joint_states 발행'], role: '관절 상태를 /joint_states로 발행', kind: 'node', owner: '제어', origin: '기존 패키지', group: 'cm', color: 'control', x: 24, y: 330, w: 204 },
-  { id: 'imu_b', label: 'imu_broadcaster', lines: ['/imu 발행 (보드 미정)'], role: 'OpenCR 보드 내장 IMU를 /imu로 발행. 어느 보드인지 미정', kind: 'node', owner: '제어', origin: '기존 패키지', group: 'cm', color: 'control', x: 242, y: 330, w: 172 },
-  {
-    id: 'control_master', label: 'control_master', sublabel: '(controller_manager)', badge: '대표 노드', lines: ['hardware component 2개'],
-    role: '제어 파트의 대표 노드. controller_manager와 hardware component 2개(팔 OpenCR, 스월브 OpenCR)',
-    kind: 'node', owner: '제어', origin: '기존 패키지 (ros2_control)', note: 'hardware component 구현은 OpenCR 펌웨어 방식(직접 작성 / 통과 모드)에 따라 다름, 미정', color: 'control', x: 430, y: 330, w: 310,
-  },
-  { id: 'exit-perception-out', kind: 'exit', label: '→ 인지', lines: ['/odom · /imu'], role: '위치 추정 입력으로 인지 파트에 보냄', href: '../nz2-part-perception/', color: 'perception', x: 770, y: 240, w: 100, h: 50 },
-  { id: 'exit-shared', kind: 'exit', label: '→ 공용', lines: ['robot_state_publisher'], role: '공용 파트(robot_state_publisher)로 보냄', color: 'project', x: 30, y: 460, w: 190, h: 50 },
-  { id: 'exit-firmware', kind: 'exit', label: '↔ 펌웨어', lines: ['시리얼: OpenCR #1 팔 · #2 스월브'], role: '펌웨어 파트(OpenCR 2대)와 시리얼 통신', href: '../nz2-part-firmware/', color: 'control', x: 430, y: 460, w: 310, h: 50 },
+  { id: 'velocity_smoother', label: 'velocity_smoother', lines: ['Nav2 · 가감속 제한'], role: '가감속 제한 (Nav2)', kind: 'node', owner: '제어', origin: '기존 패키지', color: 'control', x: 210, y: 300, w: 180 },
+  { id: 'arm_bridge', label: 'arm_bridge', lines: ['Jetson · USB CDC → OpenCR #2'], role: 'Jetson에서 OpenCR #2(팔)로 명령을 보내고 관절 상태를 받는 브리지', kind: 'node', owner: '제어', origin: '직접 작성', color: 'control', x: 610, y: 300, w: 206 },
+  { id: 'collision_monitor', label: 'collision_monitor', lines: ['감속 / 정지 폴리곤'], role: '감속/정지 폴리곤 (Nav2)', kind: 'node', owner: '제어', origin: '기존 패키지', color: 'control', x: 210, y: 395, w: 180 },
+  { id: 'exit-joint-states', kind: 'exit', label: '→ 공용 · 판단', lines: ['/arm/joint_states'], role: 'robot_state_publisher(공용)와 planning_master(판단)로 보내는 팔 관절 상태', href: '../nz2-part-planning/', color: 'project', x: 670, y: 395, w: 146, h: 50 },
+  { id: 'swerve_kinematics', label: 'swerve_kinematics', lines: ['IK 4×(조향각, 속도)', 'FK 오도메트리'], role: '스월브 역기구학 4×(조향각, 속도)과 4바퀴 FK 오도메트리', kind: 'node', owner: '제어', origin: '직접 작성', color: 'control', x: 210, y: 490, w: 180 },
+  { id: 'swerve_bridge', label: 'swerve_bridge', lines: ['Jetson · USB CDC', '→ OpenCR #1'], role: 'Jetson에서 OpenCR #1(스월브)로 모듈 명령을 보내고 관절 상태를 받는 브리지', kind: 'node', owner: '제어', origin: '직접 작성', color: 'control', x: 210, y: 585, w: 180 },
+  { id: 'exit-firmware', kind: 'exit', label: '↔ 펌웨어', lines: ['USB CDC: swerve_bridge ↔ OpenCR #1 · arm_bridge ↔ OpenCR #2'], role: '펌웨어 파트(OpenCR 2대)와 USB CDC 연결', href: '../nz2-part-firmware/', color: 'control', x: 210, y: 680, w: 606, h: 50 },
 ];
 
 export const edges = [
-  { id: 'cmd-vel-nav', from: 'exit-planning', to: 'velocity_smoother', kind: 'topic', points: [[520, 70], [520, 110]], topics: [{ name: '/cmd_vel_nav', type: 'geometry_msgs/TwistStamped', note: 'Nav2 → velocity_smoother' }] },
-  { id: 'arm-trajectory', from: 'exit-planning', to: 'jtc', kind: 'action', points: [[305, 70], [305, 240]], topics: [{ name: '/arm_controller/follow_joint_trajectory', type: 'control_msgs/action/FollowJointTrajectory', note: 'pick_server → 팔 JTC' }] },
-  { id: 'gripper-cmd', from: 'exit-planning', to: 'gripper', kind: 'action', points: [[415, 70], [415, 240]], topics: [{ name: '/gripper_controller/gripper_cmd', type: 'control_msgs/action/GripperCommand', note: 'pick_server → 그리퍼 컨트롤러' }] },
-  { id: 'points', from: 'exit-perception-in', to: 'collision_monitor', kind: 'topic', points: [[750, 70], [750, 110]], topics: [{ name: '/camera/camera/depth/color/points', type: 'sensor_msgs/PointCloud2', note: '전면 점구름. 카메라가 2대라 네임스페이스가 바뀔 수 있음' }] },
-  { id: 'cmd-vel-smoothed', from: 'velocity_smoother', to: 'collision_monitor', kind: 'topic', points: [[600, 145], [640, 145]], topics: [{ name: '/cmd_vel_smoothed', type: 'geometry_msgs/TwistStamped' }] },
-  { id: 'cmd-vel', from: 'collision_monitor', to: 'swerve_controller', kind: 'topic', points: [[700, 180], [700, 240]], topics: [{ name: '/cmd_vel', type: 'geometry_msgs/TwistStamped' }] },
-  { id: 'odom', from: 'swerve_controller', to: 'exit-perception-out', kind: 'topic', points: [[744, 265], [770, 265]], topics: [{ name: '/odom', type: 'nav_msgs/Odometry', note: '위치 추정 입력' }] },
-  { id: 'imu', from: 'imu_b', to: 'exit-perception-out', kind: 'topic', points: [[328, 400], [328, 446], [820, 446], [820, 290]], topics: [{ name: '/imu', type: 'sensor_msgs/Imu', note: '위치 추정 입력, IMU 보드 미정' }] },
-  { id: 'joint-states', from: 'jsb', to: 'exit-shared', kind: 'topic', points: [[125, 400], [125, 460]], topics: [{ name: '/joint_states', type: 'sensor_msgs/JointState' }] },
-  { id: 'serial', from: 'control_master', to: 'exit-firmware', kind: 'hardware', both: true, topics: [], points: [[585, 400], [585, 460]], note: '시리얼 통신. 직접 작성 펌웨어 / 통과 모드 미정' },
+  { id: 'path', from: 'exit-planning', to: 'path_tracker', kind: 'topic', points: [[300, 70], [300, 110]], topics: [{ name: '/planning/path', type: '[타입 미정]', note: 'planner_server → path_tracker' }] },
+  { id: 'dock-goal', from: 'exit-planning', to: 'dock_controller', kind: 'topic', points: [[500, 70], [500, 110]], topics: [{ name: '/planning/dock_goal', type: '[타입 미정]', note: 'approach_planner → dock_controller' }] },
+  {
+    id: 'modes', from: 'exit-planning', to: 'control_master', kind: 'topic', points: [[395, 70], [395, 205]],
+    topics: [
+      { name: '/planning/drive_mode', type: '[타입 미정]', note: 'planning_master → control_master' },
+      { name: '/planning/traffic_hold', type: '[타입 미정]', note: 'traffic_behavior → control_master' },
+    ],
+  },
+  { id: 'status', from: 'control_master', to: 'exit-planning', kind: 'topic', points: [[405, 205], [405, 70]], topics: [{ name: '/control/status', type: '[타입 미정]', note: 'control_master → planning_master (피드백)' }] },
+  { id: 'gripper-goal', from: 'exit-planning', to: 'gripper_controller', kind: 'topic', points: [[700, 70], [700, 110]], topics: [{ name: '/planning/gripper_goal', type: '[타입 미정]', note: 'grasp_planner → gripper_controller' }] },
+  { id: 'arm-trajectory', from: 'exit-planning', to: 'arm_trajectory_executor', kind: 'topic', points: [[810, 70], [810, 86], [830, 86], [830, 240], [816, 240]], topics: [{ name: '/planning/arm_trajectory', type: '[타입 미정]', note: 'arm_ik_planner → arm_trajectory_executor' }] },
+  { id: 'odom', from: 'exit-odom', to: 'drive', kind: 'topic', points: [[190, 135], [202, 135]], topics: [{ name: '/odometry/filtered', type: 'nav_msgs/Odometry', note: 'ekf_node → path_tracker, dock_controller' }] },
+  { id: 'estop', from: 'estop', to: 'control_master', kind: 'topic', points: [[190, 240], [210, 240]], topics: [{ name: '/estop', type: '[타입 미정]', note: 'OpenCR GPIO 경유' }] },
+  { id: 'cmd-vel-nav', from: 'path_tracker', to: 'control_master', kind: 'topic', points: [[300, 180], [300, 205]], topics: [{ name: '/cmd_vel_nav', type: 'geometry_msgs/TwistStamped [TwistStamped 가정]' }] },
+  { id: 'cmd-vel-dock', from: 'dock_controller', to: 'control_master', kind: 'topic', points: [[500, 180], [500, 205]], topics: [{ name: '/cmd_vel_dock', type: 'geometry_msgs/TwistStamped [TwistStamped 가정]' }] },
+  { id: 'gripper-raw', from: 'gripper_controller', to: 'control_master', kind: 'topic', points: [[610, 160], [600, 160], [600, 215], [590, 215]], topics: [{ name: '/arm/gripper_cmd_raw', type: '[타입 미정]' }] },
+  { id: 'joint-raw', from: 'arm_trajectory_executor', to: 'control_master', kind: 'topic', points: [[610, 250], [590, 250]], topics: [{ name: '/arm/joint_cmd_raw', type: '[타입 미정]' }] },
+  { id: 'cmd-vel-raw', from: 'control_master', to: 'velocity_smoother', kind: 'topic', points: [[300, 275], [300, 300]], topics: [{ name: '/cmd_vel_raw', type: 'geometry_msgs/TwistStamped [TwistStamped 가정]' }] },
+  {
+    id: 'arm-cmd', from: 'control_master', to: 'arm_bridge', kind: 'topic', points: [[560, 275], [560, 288], [700, 288], [700, 300]],
+    topics: [
+      { name: '/arm/joint_cmd', type: '[타입 미정]' },
+      { name: '/arm/gripper_cmd', type: '[타입 미정]' },
+    ],
+  },
+  { id: 'arm-fb', from: 'arm_bridge', to: 'arm', kind: 'topic', points: [[760, 300], [760, 282]], topics: [{ name: '/arm/joint_states', type: '[타입 미정]', note: '피드백 → arm_trajectory_executor, gripper_controller' }] },
+  { id: 'arm-states-out', from: 'arm_bridge', to: 'exit-joint-states', kind: 'topic', points: [[743, 370], [743, 395]], topics: [{ name: '/arm/joint_states', type: '[타입 미정]', note: '→ robot_state_publisher, planning_master' }] },
+  { id: 'cdc-arm', from: 'arm_bridge', to: 'exit-firmware', kind: 'hardware', both: true, topics: [], points: [[640, 370], [640, 680]], note: 'USB CDC ↔ OpenCR #2' },
+  { id: 'cmd-vel-smoothed', from: 'velocity_smoother', to: 'collision_monitor', kind: 'topic', points: [[300, 370], [300, 395]], topics: [{ name: '/cmd_vel_smoothed', type: 'geometry_msgs/TwistStamped [TwistStamped 가정]' }] },
+  {
+    id: 'scan', from: 'exit-scan', to: 'collision_monitor', kind: 'topic', points: [[190, 428], [210, 428]],
+    topics: [
+      { name: '/scan', type: 'sensor_msgs/LaserScan', note: 'depthimage_to_laserscan' },
+      { name: '/perception/obstacles', type: '[타입 미정] (점군)', note: 'obstacle_detector' },
+    ],
+  },
+  { id: 'cmd-vel-safe', from: 'collision_monitor', to: 'swerve_kinematics', kind: 'topic', points: [[300, 465], [300, 490]], topics: [{ name: '/cmd_vel_safe', type: 'geometry_msgs/TwistStamped [TwistStamped 가정]' }] },
+  { id: 'wheel-odom', from: 'swerve_kinematics', to: 'exit-wheel', kind: 'topic', points: [[210, 515], [190, 515]], topics: [{ name: '/wheel/odom', type: 'nav_msgs/Odometry', note: '4바퀴 FK 오도메트리 → ekf_node' }] },
+  { id: 'module-cmd', from: 'swerve_kinematics', to: 'swerve_bridge', kind: 'topic', points: [[270, 560], [270, 585]], topics: [{ name: '/swerve/module_cmd', type: '[타입 미정]', note: '4×(조향각, 구동속도)' }] },
+  { id: 'swerve-fb', from: 'swerve_bridge', to: 'swerve_kinematics', kind: 'topic', points: [[340, 585], [340, 560]], topics: [{ name: '/swerve/joint_states', type: '[타입 미정]', note: '피드백' }] },
+  { id: 'cdc-swerve', from: 'swerve_bridge', to: 'exit-firmware', kind: 'hardware', both: true, topics: [], points: [[300, 655], [300, 680]], note: 'USB CDC ↔ OpenCR #1' },
 ];
 
 [← 분담 구조도로 돌아가기](../nz2-parts/#분담-구조도)
 
-<Callout type="warn" title="초안 (2026-10-20)">
-  확정 전이다. 가장자리의 출구(→ 판단 등)를 누르면 그 파트의 세부 구조도로 이동한다.
+<Callout type="warn" title="데이터 플로우 차트 기준 (2026-10-22 반영)">
+  `nz2_dataflow`의 control 페이지를 기준으로 다시 그렸다. 이전 설계의 controller_manager(ros2_control) 구조는 커스텀 노드 구조로 바뀌었다.
+  가장자리의 출구(↔ 판단 등)를 누르면 그 파트의 세부 구조도로 이동한다.
 </Callout>
 
 ## 세부 구조도
@@ -65,13 +98,13 @@ export const edges = [
   nodes={nodes}
   edges={edges}
   groups={groups}
-  width={880}
-  height={520}
+  width={850}
+  height={750}
 />
 
-- 대표 노드 control_master(controller_manager)가 hardware component 2개(팔 OpenCR, 스월브 OpenCR)를 맡고, 그 안에서 컨트롤러들이 실행된다.
-- 모든 파트 공통: `/diagnostics`는 판단으로 보내고, `/state/*`는 판단에서 받는다.
-- 안전 정지에서 제어는 2단계인 명령 타임아웃을 맡는다.
+- 속도 체인: `/cmd_vel_nav` · `/cmd_vel_dock` → control_master → `/cmd_vel_raw` → velocity_smoother → `/cmd_vel_smoothed` → collision_monitor → `/cmd_vel_safe` → swerve_kinematics → `/swerve/module_cmd` → swerve_bridge.
+- 팔 명령: arm_trajectory_executor·gripper_controller → control_master → arm_bridge. 관절 상태는 arm_bridge가 되돌려 준다.
+- 안전 3중 중 제어는 1단계(control_master 타임아웃 200 ms · E-stop)를 맡는다.
 
 ## 노드 목록
 
@@ -79,12 +112,16 @@ export const edges = [
 
 | 노드 | 하는 일 | 구분 |
 | --- | --- | --- |
-| ★ control_master (controller_manager) | hardware component 2개(OpenCR #1 팔, #2 스월브) | 기존 패키지 (ros2_control) |
-| swerve_controller | `/cmd_vel` → 스월브 8모터, `/odom` 발행(TF는 끔) | 미정 (직접 작성 / 기존 패키지) |
-| 팔 JTC, 그리퍼 컨트롤러 | 받은 궤적·그리퍼 명령대로 실행 | 기존 패키지 |
-| joint_state_broadcaster, imu_broadcaster | `/joint_states`, `/imu` 발행(IMU 보드 미정) | 기존 패키지 |
-| velocity_smoother, collision_monitor | 급가속·급감속 제한, 전면 점구름으로 감속·정지 후 최종 `/cmd_vel` 발행 | 기존 패키지 |
-| twist_mux (선택) | 수동 조작 시험용. 디버그 launch에만 | 기존 패키지 |
+| ★ control_master | 모드 MUX, E-stop, 타임아웃 200 ms | 직접 작성 |
+| path_tracker | 종(속도 프로파일) · 횡(vy, wz) 제어 | 직접 작성 |
+| dock_controller | 선반 정밀 접근 0.05 m/s 이하 | 직접 작성 |
+| arm_trajectory_executor | 100 Hz 보간, 관절 제한 | 직접 작성 |
+| gripper_controller | 전류 기반 파지, 성공 판정 | 직접 작성 |
+| velocity_smoother | Nav2. 가감속 제한 | 기존 패키지 |
+| collision_monitor | Nav2. 감속/정지 폴리곤 | 기존 패키지 |
+| swerve_kinematics | IK 4×(조향각, 속도), FK 오도메트리(4바퀴) | 직접 작성 |
+| swerve_bridge | Jetson, USB 시리얼(USB CDC) → OpenCR #1 | 직접 작성 |
+| arm_bridge | Jetson, USB 시리얼(USB CDC) → OpenCR #2 | 직접 작성 |
 
 ## 토픽 · 서비스 · 액션
 
@@ -94,50 +131,55 @@ export const edges = [
 
 | 이름 | 방식 | 타입 | 보내는 쪽 → 받는 쪽 | 비고 |
 | --- | --- | --- | --- | --- |
-| `/cmd_vel_smoothed` | topic | `geometry_msgs/TwistStamped` | velocity_smoother → collision_monitor |  |
-| `/cmd_vel` | topic | `geometry_msgs/TwistStamped` | collision_monitor → swerve_controller. linear.x, linear.y, angular.z 사용 |  |
+| `/cmd_vel_nav` | topic | `geometry_msgs/TwistStamped` [TwistStamped 가정] | path_tracker → control_master | |
+| `/cmd_vel_dock` | topic | `geometry_msgs/TwistStamped` [TwistStamped 가정] | dock_controller → control_master | 0.05 m/s 이하 |
+| `/cmd_vel_raw` | topic | `geometry_msgs/TwistStamped` [TwistStamped 가정] | control_master → velocity_smoother | |
+| `/cmd_vel_smoothed` | topic | `geometry_msgs/TwistStamped` [TwistStamped 가정] | velocity_smoother → collision_monitor | |
+| `/cmd_vel_safe` | topic | `geometry_msgs/TwistStamped` [TwistStamped 가정] | collision_monitor → swerve_kinematics | |
+| `/swerve/module_cmd` | topic | [타입 미정] | swerve_kinematics → swerve_bridge | 4×(조향각, 구동속도) |
+| `/swerve/joint_states` | topic | [타입 미정] | swerve_bridge → swerve_kinematics | 피드백 |
+| `/arm/joint_cmd_raw` | topic | [타입 미정] | arm_trajectory_executor → control_master | |
+| `/arm/gripper_cmd_raw` | topic | [타입 미정] | gripper_controller → control_master | |
+| `/arm/joint_cmd` | topic | [타입 미정] | control_master → arm_bridge | |
+| `/arm/gripper_cmd` | topic | [타입 미정] | control_master → arm_bridge | |
 
 ### 다른 파트로 나가는 것
 
 | 이름 | 방식 | 타입 | 보내는 쪽 → 받는 쪽 | 비고 |
 | --- | --- | --- | --- | --- |
-| `/odom` | topic | `nav_msgs/Odometry` | swerve_controller → localization (TF는 내지 않음) |  |
-| `/imu` | topic | `sensor_msgs/Imu` | imu_broadcaster (OpenCR, 보드 [미정]) → localization |  |
-| `/joint_states` | topic | `sensor_msgs/JointState` | joint_state_broadcaster → robot_state_publisher, pick_server, planning_master |  |
-| `/diagnostics` | topic | `diagnostic_msgs/DiagnosticArray` | 모든 파트 → health_monitor. FAULT를 planning_master로 전달하는 방식 미정 |  |
+| `/wheel/odom` | topic | `nav_msgs/Odometry` | swerve_kinematics → ekf_node | 4바퀴 FK 오도메트리 |
+| `/arm/joint_states` | topic | [타입 미정] | arm_bridge → robot_state_publisher, arm_trajectory_executor, gripper_controller, planning_master | 피드백 |
+| `/control/status` | topic | [타입 미정] | control_master → planning_master | 피드백 |
 
 ### 다른 파트에서 들어오는 것
 
 | 이름 | 방식 | 타입 | 보내는 쪽 → 받는 쪽 | 비고 |
 | --- | --- | --- | --- | --- |
-| `/cmd_vel_nav` | topic | `geometry_msgs/TwistStamped` | Nav2 controller → velocity_smoother (20 Hz) |  |
-| `/arm_controller/follow_joint_trajectory` | action | `control_msgs/action/FollowJointTrajectory` | pick_server → control_master의 팔 JTC. 접촉 감지 시 pick_server가 취소 |  |
-| `/gripper_controller/gripper_cmd` | action | `control_msgs/action/GripperCommand` | pick_server → control_master의 그리퍼 컨트롤러 |  |
-| `/camera/camera/depth/color/points` | topic | `sensor_msgs/PointCloud2` | realsense2_camera(전면) → Nav2 costmap, collision_monitor (10-15 Hz로 다운샘플) |  |
-| `/cmd/manual/cmd_vel` | topic | `geometry_msgs/TwistStamped` | (선택) 수동 조작 → twist_mux. 쓰면 Nav2와 velocity_smoother 사이에 들어감 |  |
-| `/state/emergency` | topic | `std_msgs/Bool` | planning_master → 모두 |  |
-| `/state/operation_mode` | topic | `std_msgs/String` | planning_master → 모두 |  |
-| `/state/mission_phase` | topic | `std_msgs/String` (IDLE · SURVEY · TRANSPORT · DONE) | planning_master → 모두. 인지는 이 값으로 퍽 지도 누적과 그리퍼 카메라 처리를 켜고 끔 |  |
-| `/tf_static` | topic | TF2 | robot_state_publisher → 모두. base_link → camera_link, base_link → arm_base_link (값은 URDF에만, 팔 장착 위치 [미정]) |  |
-| `/tf` | topic | TF2 | robot_state_publisher → 모두. 팔 관절에 따라 움직이는 그리퍼 카메라 링크 |  |
+| `/planning/path` | topic | [타입 미정] | planner_server → path_tracker | |
+| `/planning/dock_goal` | topic | [타입 미정] | approach_planner → dock_controller | |
+| `/planning/gripper_goal` | topic | [타입 미정] | grasp_planner → gripper_controller | |
+| `/planning/arm_trajectory` | topic | [타입 미정] | arm_ik_planner → arm_trajectory_executor | |
+| `/planning/drive_mode` | topic | [타입 미정] | planning_master → control_master | |
+| `/planning/traffic_hold` | topic | [타입 미정] | traffic_behavior → control_master | RED/YELLOW → HOLD |
+| `/odometry/filtered` + TF odom → base_link | topic + TF | `nav_msgs/Odometry` | ekf_node → planning_master, planner_server, path_tracker, dock_controller | odom → base_link는 ekf_node만 |
+| TF map → odom + `/amcl_pose` | TF + topic | `geometry_msgs/PoseWithCovarianceStamped` | amcl → planning_master, control_master | map → odom은 amcl만 |
+| `/scan` | topic | `sensor_msgs/LaserScan` | depthimage_to_laserscan → amcl, collision_monitor, planner_server(costmap), slam_toolbox(매핑 시) | 틸트 10°에서 바닥을 벽으로 오인식할 위험 **[검토 중]** |
+| `/perception/obstacles` | topic | [타입 미정] (점군) | obstacle_detector → perception_master, collision_monitor, planner_server(costmap) | 바닥 제거 점군 |
+| `/estop` | topic | [타입 미정] | 비상정지 스위치(OpenCR GPIO) → control_master | |
+
+### 하드웨어 연결
+
+| 연결 | 보내는 쪽 → 받는 쪽 | 비고 |
+| --- | --- | --- |
+| USB CDC | swerve_bridge ↔ OpenCR #1 | |
+| USB CDC | arm_bridge ↔ OpenCR #2 | |
 
 ## 통신 규칙
 
-- **안전은 맨 뒤에 둔다.** 모든 속도 명령은 Nav2 복구 동작까지 포함해 velocity_smoother → collision_monitor를 거쳐 `/cmd_vel`이 된다. 접촉하면 실격이라 이 체인은 빼지 않는다.
-- **속도 명령은 체인 전체 TwistStamped.** 최근 ROS 2 배포판의 Nav2와 컨트롤러 기본값에 맞춘다.
-- **안전 정지 3단**: planning_master 입력 타임아웃 → control_master 명령 타임아웃 → 펌웨어 watchdog.
-- **control_master(controller_manager)는 하나.** hardware component는 OpenCR별로 2개(팔, 스월브)를 올린다. IMU는 OpenCR 보드 내장 IMU를 쓰고, 어느 보드의 IMU인지는 **[미정]** 이다.
-- 스월브 컨트롤러는 TF를 끄고 `/odom` 토픽만 낸다.
-- **odom → base_link**: localization(인지) 하나만 낸다.
+- **안전 3중**: control_master(타임아웃 200 ms · E-stop) → OpenCR 펌웨어 watchdog(200 ms) → E-stop 릴레이로 12 V 모터 전원 차단(하드웨어).
+- **스월브 역기구학은 Jetson에서** 계산한다(swerve_kinematics). OpenCR은 전류·속도 제한과 200 ms watchdog만 맡고, 상위 명령을 통과시킨다.
+- 받는 쪽은 `header.stamp`를 보고, 예를 들어 0.5초 넘게 새 메시지가 없으면 멈추는 처리를 넣는다.
 - base_link = 차체 중심, 바닥 높이. x는 앞, y는 왼쪽, 단위는 m와 rad (REP-103).
 - 팔 제어는 TF로 arm_base_link 기준으로 바꾼다. 장착 위치 숫자를 코드에 넣지 않는다(장착 위치 [미정]).
-
-인지가 줄여서 보내고, 팔 제어는 받은 값을 바로 롤 각도로 쓴다.
-
-| 퍽 상태 | 대칭 | 보낼 범위 |
-| --- | --- | --- |
-| 서 있는 원통 | 어느 방향이든 같음 | 0 고정 |
-| 서 있는 직육면체 | 90°마다 | −45°에서 +45° |
-| 누운 원통 · 직육면체 | 180°마다 | −90°에서 +90° |
 
 [← 분담 구조도로 돌아가기](../nz2-parts/#분담-구조도)

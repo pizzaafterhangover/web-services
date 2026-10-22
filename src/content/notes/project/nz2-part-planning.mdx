@@ -1,9 +1,10 @@
 ---
 title: 팀NZ2 세부 구조도 · 판단
-description: 팀NZ2 판단 파트의 세부 노드와 토픽. planning_master, health_monitor, Nav2, pick_server와 다른 파트로 나가는 출구.
+description: 팀NZ2 판단 파트(Decision · Planning)의 세부 노드와 토픽. mission_fsm, planning_master, 하위 플래너(경로·접근·파지·IK·적재통·신호등)와 다른 파트로 나가는 출구.
 category: project
 tags: [ROS 2, 팀NZ2, 시스템 구조, Nav2]
 date: 2026-10-20
+updated: 2026-10-22
 status: 학습중
 draft: false
 ---
@@ -11,57 +12,71 @@ draft: false
 import RosGraph from '../../../components/widgets/RosGraph';
 
 export const nodes = [
+  { id: 'exit-perception', kind: 'exit', label: '↔ 인지', lines: ['상태 · 위치 · 지도', '신호등', 'set_mode (srv)'], role: '인지 파트와 주고받는 토픽과 서비스', href: '../nz2-part-perception/', color: 'perception', x: 10, y: 20, w: 190, h: 620 },
+  { id: 'exit-control', kind: 'exit', label: '↔ 제어', lines: ['/planning/* 결과 →', '← /control/status', '← /arm/joint_states'], role: '제어 파트로 보내는 계획 결과와 받는 피드백', href: '../nz2-part-control/', color: 'control', x: 665, y: 20, w: 205, h: 620 },
   {
-    id: 'exit-perception', kind: 'exit', label: '↔ 인지', lines: ['퍽 지도 · 경광등 · 손 정렬 · 태그·바코드'], role: '인지 파트와 주고받는 토픽과 서비스', href: '../nz2-part-perception/', color: 'perception', x: 20, y: 20, w: 440, h: 50 },
-  { id: 'exit-all-in', kind: 'exit', label: '← 모든 파트', lines: ['/diagnostics'], role: '모든 파트가 보내는 진단 정보', color: 'ros2', x: 500, y: 20, w: 200, h: 50 },
-  { id: 'exit-all-out', kind: 'exit', label: '→ 모든 파트', lines: ['/state/*'], role: '모든 파트에 보내는 임무 상태', color: 'ros2', x: 20, y: 110, w: 156, h: 50 },
-  {
-    id: 'planning_master', label: 'planning_master', badge: '대표 노드', lines: ['임무 상태 머신, 운반 순서', '/state/* 발행'],
-    role: '판단 파트의 대표 노드. 임무 상태 머신, 운반 순서, /state/* 발행', kind: 'node', owner: '판단', origin: '직접 작성', color: 'nav2', x: 212, y: 110, w: 228,
+    id: 'planning_master', label: 'planning_master', badge: '대표 노드', lines: ['action 서버', '작업 분해', '/planning/drive_mode'],
+    role: '판단 파트의 대표 노드. /planning/execute_task 액션 서버, 작업 분해. 하위 플래너에 서비스·액션 요청, /planning/drive_mode 발행', kind: 'node', owner: '판단', origin: '직접 작성', color: 'nav2', x: 215, y: 115, w: 200,
   },
-  {
-    id: 'health_monitor', label: 'health_monitor', lines: ['/diagnostics → FAULT 판정'],
-    role: '/diagnostics를 받아 FAULT 판정', kind: 'node', owner: '판단', origin: '직접 작성', note: 'FAULT를 planning_master에 전달하는 방식 미정', color: 'nav2', x: 500, y: 110, w: 200,
-  },
-  {
-    id: 'pick_server', label: 'pick_server', lines: ['IK · 집기 순서 →', '팔 궤적 · 그리퍼 액션'],
-    role: 'IK와 집기 순서를 계획해 팔 궤적·그리퍼 액션을 보낸다', kind: 'node', owner: '판단', origin: '직접 작성', note: 'IK 방식 미정 (자체 IK / MoveIt)', color: 'nav2', x: 20, y: 240, w: 190,
-  },
-  {
-    id: 'nav2', label: 'Nav2', sublabel: '+ map_server', lines: ['경로 계획 → /cmd_vel_nav'],
-    role: '주어진 지도로 경로를 계획하고 /cmd_vel_nav 발행', kind: 'node', owner: '판단', origin: '기존 패키지', color: 'nav2', x: 240, y: 240, w: 200,
-    extra: [{ dir: 'in', name: 'map → odom → base_link', type: 'TF', peer: '인지 (위치 추정)', note: '위치 추정 방식 미정' }],
-  },
-  { id: 'exit-control', kind: 'exit', label: '→ 제어', lines: ['/cmd_vel_nav · 팔 궤적 · 그리퍼 액션'], role: '제어 파트로 보내는 속도 명령과 팔·그리퍼 액션', href: '../nz2-part-control/', color: 'control', x: 20, y: 370, w: 440, h: 50 },
+  { id: 'mission_fsm', label: 'mission_fsm', lines: ['미션 상태 머신'], role: '미션 상태 머신 (Decision)', kind: 'node', owner: '판단', origin: '직접 작성', color: 'nav2', x: 225, y: 510, w: 180 },
+  { id: 'health_monitor', label: 'health_monitor', lines: ['[보류] 새 차트에 없음'], role: '이전 설계의 장애 판정 노드. 새 차트에 없어 유지 여부 미정', kind: 'node', owner: '판단', origin: '[보류]', color: 'nav2', x: 225, y: 620, w: 180 },
+  { id: 'planner_server', label: 'planner_server', lines: ['Nav2 SmacPlanner2D', 'global_costmap'], role: '전역 경로 (Nav2 SmacPlanner2D, global_costmap)', kind: 'node', owner: '판단', origin: '기존 패키지', color: 'nav2', x: 435, y: 20, w: 200 },
+  { id: 'approach_planner', label: 'approach_planner', lines: ['선반 앞 정렬 pose'], role: '선반 앞 정렬 pose', kind: 'node', owner: '판단', origin: '직접 작성', color: 'nav2', x: 435, y: 115, w: 200 },
+  { id: 'grasp_planner', label: 'grasp_planner', lines: ['서 있음: 위', '누움: 측면 + 롤'], role: '파지 방식. 서 있으면 위에서, 누워 있으면 측면 + 롤', kind: 'node', owner: '판단', origin: '직접 작성', color: 'nav2', x: 435, y: 210, w: 200 },
+  { id: 'arm_ik_planner', label: 'arm_ik_planner', lines: ['5축 해석적 IK', '간섭 검사'], role: '5축 해석적 IK, 간섭 검사', kind: 'node', owner: '판단', origin: '직접 작성', color: 'nav2', x: 435, y: 305, w: 200 },
+  { id: 'bin_manager', label: 'bin_manager', lines: ['적재통 슬롯', '가로 배치 · 위치 [미정]'], role: '적재통 슬롯. 가로 배치, 위치 미정', kind: 'node', owner: '판단', origin: '직접 작성', color: 'nav2', x: 435, y: 400, w: 200 },
+  { id: 'traffic_behavior', label: 'traffic_behavior', lines: ['RED/YELLOW → HOLD'], role: '신호등이 RED/YELLOW면 HOLD', kind: 'node', owner: '판단', origin: '직접 작성', color: 'nav2', x: 435, y: 510, w: 200 },
 ];
 
 export const edges = [
   {
-    id: 'perception-in', from: 'exit-perception', to: 'planning_master', kind: 'topic', points: [[300, 70], [300, 110]],
+    id: 'costmap-in', from: 'exit-perception', to: 'planner_server', kind: 'topic', points: [[200, 45], [435, 45]],
     topics: [
-      { name: '/perception/puck_map', type: 'team_interfaces/PuckMap' },
-      { name: '/perception/tower_light', type: 'team_interfaces/TowerLight' },
-      { name: 'AprilTag · 바코드 결과', type: '미정', note: '토픽 미정' },
+      { name: '/map', type: 'nav_msgs/OccupancyGrid', note: 'map_server' },
+      { name: '/scan', type: 'sensor_msgs/LaserScan', note: 'depthimage_to_laserscan' },
+      { name: '/perception/obstacles', type: '[타입 미정] (점군)', note: 'obstacle_detector' },
+      { name: '/odometry/filtered', type: 'nav_msgs/Odometry', note: 'ekf_node' },
     ],
   },
   {
-    id: 'perception-srv', from: 'planning_master', to: 'exit-perception', kind: 'service', points: [[400, 110], [400, 70]],
-    topics: [{ name: '/perception/puck_map/set_state', type: 'team_interfaces/SetPuckState' }],
+    id: 'state-in', from: 'exit-perception', to: 'planning_master', kind: 'topic', points: [[200, 290], [215, 290]],
+    topics: [
+      { name: '/perception/state', type: '[타입 미정]', note: 'perception_master' },
+      { name: '/odometry/filtered · TF odom → base_link', type: 'nav_msgs/Odometry · TF', note: 'ekf_node' },
+      { name: 'TF map → odom · /amcl_pose', type: 'TF · geometry_msgs/PoseWithCovarianceStamped', note: 'amcl' },
+    ],
   },
-  { id: 'hand-target', from: 'exit-perception', to: 'pick_server', kind: 'topic', points: [[196, 70], [196, 240]], topics: [{ name: '/perception/hand_target', type: 'team_interfaces/HandTarget' }] },
-  { id: 'diagnostics', from: 'exit-all-in', to: 'health_monitor', kind: 'topic', points: [[600, 70], [600, 110]], topics: [{ name: '/diagnostics', type: 'diagnostic_msgs/DiagnosticArray' }] },
-  { id: 'state', from: 'planning_master', to: 'exit-all-out', kind: 'topic', points: [[212, 135], [176, 135]], topics: [{ name: '/state/*', type: 'std_msgs (Bool · String)', note: 'emergency, operation_mode, mission_phase' }] },
-  { id: 'navigate', from: 'planning_master', to: 'nav2', kind: 'action', points: [[330, 180], [330, 240]], topics: [{ name: 'navigate_to_pose', type: 'nav2_msgs/action/NavigateToPose' }] },
-  { id: 'pick-puck', from: 'planning_master', to: 'pick_server', kind: 'action', points: [[240, 180], [240, 205], [110, 205], [110, 240]], topics: [{ name: '/pick_puck', type: 'team_interfaces/action/PickPuck', note: '초안' }] },
-  { id: 'cmd-vel-nav', from: 'nav2', to: 'exit-control', kind: 'topic', points: [[340, 310], [340, 370]], topics: [{ name: '/cmd_vel_nav', type: 'geometry_msgs/TwistStamped' }] },
-  { id: 'arm-trajectory', from: 'pick_server', to: 'exit-control', kind: 'action', points: [[60, 310], [60, 370]], topics: [{ name: '/arm_controller/follow_joint_trajectory', type: 'control_msgs/action/FollowJointTrajectory' }] },
-  { id: 'gripper-cmd', from: 'pick_server', to: 'exit-control', kind: 'action', points: [[150, 310], [150, 370]], topics: [{ name: '/gripper_controller/gripper_cmd', type: 'control_msgs/action/GripperCommand' }] },
+  { id: 'state-fsm', from: 'exit-perception', to: 'mission_fsm', kind: 'topic', points: [[200, 535], [225, 535]], topics: [{ name: '/perception/state', type: '[타입 미정]', note: 'perception_master' }] },
+  { id: 'set-mode', from: 'mission_fsm', to: 'exit-perception', kind: 'service', points: [[225, 560], [200, 560]], topics: [{ name: '/perception/set_mode', type: '[타입 미정]', note: '→ perception_master' }] },
+  { id: 'traffic-in', from: 'exit-perception', to: 'traffic_behavior', kind: 'topic', points: [[200, 600], [535, 600], [535, 580]], topics: [{ name: '/perception/traffic_light', type: '[타입 미정]', note: 'traffic_light_filter' }] },
+  { id: 'execute-goal', from: 'mission_fsm', to: 'planning_master', kind: 'action', points: [[275, 510], [275, 455]], topics: [{ name: '/planning/execute_task', type: '[타입 미정]', note: 'goal. 필드 미정' }] },
+  { id: 'execute-result', from: 'planning_master', to: 'mission_fsm', kind: 'action', points: [[355, 455], [355, 510]], topics: [{ name: '/planning/execute_task', type: '[타입 미정]', note: 'feedback · result. 필드 미정' }] },
+  { id: 'compute-path', from: 'planning_master', to: 'planner_server', kind: 'action', points: [[415, 135], [425, 135], [425, 60], [435, 60]], topics: [{ name: 'compute_path_to_pose', type: 'nav2_msgs/action/ComputePathToPose' }] },
+  { id: 'approach-srv', from: 'planning_master', to: 'approach_planner', kind: 'service', points: [[415, 150], [435, 150]], topics: [{ name: '/planning/approach_pose', type: '[타입 미정]' }] },
+  { id: 'grasp-srv', from: 'planning_master', to: 'grasp_planner', kind: 'service', points: [[415, 245], [435, 245]], topics: [{ name: '/planning/plan_grasp', type: '[타입 미정]' }] },
+  { id: 'ik-srv', from: 'planning_master', to: 'arm_ik_planner', kind: 'service', points: [[415, 340], [435, 340]], topics: [{ name: '/planning/solve_ik', type: '[타입 미정]' }] },
+  { id: 'bin-srv', from: 'planning_master', to: 'bin_manager', kind: 'service', points: [[415, 435], [435, 435]], topics: [{ name: '/planning/bin_slot', type: '[타입 미정]' }] },
+  { id: 'slot-pose', from: 'bin_manager', to: 'arm_ik_planner', kind: 'topic', points: [[535, 400], [535, 375]], topics: [{ name: '슬롯 자세', type: '[타입 미정]', note: '토픽 이름 미정' }] },
+  { id: 'path', from: 'planner_server', to: 'exit-control', kind: 'topic', points: [[635, 55], [665, 55]], topics: [{ name: '/planning/path', type: '[타입 미정]', note: '→ path_tracker' }] },
+  { id: 'dock-goal', from: 'approach_planner', to: 'exit-control', kind: 'topic', points: [[635, 150], [665, 150]], topics: [{ name: '/planning/dock_goal', type: '[타입 미정]', note: '→ dock_controller' }] },
+  { id: 'gripper-goal', from: 'grasp_planner', to: 'exit-control', kind: 'topic', points: [[635, 245], [665, 245]], topics: [{ name: '/planning/gripper_goal', type: '[타입 미정]', note: '→ gripper_controller' }] },
+  { id: 'arm-trajectory', from: 'arm_ik_planner', to: 'exit-control', kind: 'topic', points: [[635, 340], [665, 340]], topics: [{ name: '/planning/arm_trajectory', type: '[타입 미정]', note: '→ arm_trajectory_executor' }] },
+  { id: 'traffic-hold', from: 'traffic_behavior', to: 'exit-control', kind: 'topic', points: [[635, 545], [665, 545]], topics: [{ name: '/planning/traffic_hold', type: '[타입 미정]', note: '→ control_master' }] },
+  { id: 'drive-mode', from: 'planning_master', to: 'exit-control', kind: 'topic', points: [[415, 445], [425, 445], [425, 480], [665, 480]], topics: [{ name: '/planning/drive_mode', type: '[타입 미정]', note: '→ control_master' }] },
+  {
+    id: 'feedback', from: 'exit-control', to: 'planning_master', kind: 'topic', points: [[665, 495], [390, 495], [390, 455]],
+    topics: [
+      { name: '/control/status', type: '[타입 미정]', note: 'control_master' },
+      { name: '/arm/joint_states', type: '[타입 미정]', note: 'arm_bridge' },
+    ],
+  },
 ];
 
 [← 분담 구조도로 돌아가기](../nz2-parts/#분담-구조도)
 
-<Callout type="warn" title="초안 (2026-10-20)">
-  확정 전이다. 가장자리의 출구(→ 제어 등)를 누르면 그 파트의 세부 구조도로 이동한다.
+<Callout type="warn" title="데이터 플로우 차트 기준 (2026-10-22 반영)">
+  `nz2_dataflow`의 planning 페이지를 기준으로 다시 그렸다. 이전 설계의 pick_server는 grasp_planner·arm_ik_planner·bin_manager로 나뉘었다.
+  가장자리의 출구(↔ 제어 등)를 누르면 그 파트의 세부 구조도로 이동한다.
 </Callout>
 
 ## 세부 구조도
@@ -70,13 +85,13 @@ export const edges = [
   client:visible
   nodes={nodes}
   edges={edges}
-  width={720}
-  height={430}
+  width={880}
+  height={700}
 />
 
-- 대표 노드 planning_master가 임무 상태 머신과 운반 순서를 맡고, `/state/*`를 발행한다.
-- 장애 판정은 health_monitor가 한다. 안전 정지에서 판단은 1단계인 입력 타임아웃을 맡는다.
-- 위치 추정 TF(map → odom → base_link)는 인지 파트에서 온다.
+- mission_fsm(Decision)이 `/planning/execute_task` 액션으로 작업을 맡기고, 대표 노드 planning_master(Planning)가 하위 플래너에 서비스·액션을 요청한다.
+- 하위 플래너는 결과 토픽을 제어로 직접 보낸다. planning_master는 `/planning/drive_mode`만 직접 보낸다.
+- 신호등은 traffic_behavior가 `/perception/traffic_light`를 직접 구독한다.
 
 ## 노드 목록
 
@@ -84,10 +99,15 @@ export const edges = [
 
 | 노드 | 하는 일 | 구분 |
 | --- | --- | --- |
-| ★ planning_master | 임무 상태 머신, 운반 순서, `navigate_to_pose`·`/pick_puck` 액션 전송, `/cmd/*`를 받아 `/state/*`를 발행하는 유일한 노드 | 직접 작성 |
-| health_monitor | `/diagnostics`를 받아 FAULT 판정. planning_master로 전달하는 방식 미정 | 직접 작성 |
-| Nav2 + map_server | 주어진 지도로 경로 계획 → `/cmd_vel_nav`. 전방향 컨트롤러, 전면 점구름 voxel layer로 동적 장애물 | 기존 패키지 |
-| pick_server | pick_puck 액션 서버. 접근 → 정렬 → 파지 → 들기 → 적재/내려놓기를 IK로 계획해 궤적 전송. 실행 중 관절 전류를 감시해 접촉이면 궤적 취소. IK 방식 미정(자체 IK / MoveIt) | 직접 작성 |
+| mission_fsm | 미션 상태 머신 (Decision) | 직접 작성 |
+| ★ planning_master | action 서버, 작업 분해. 하위 플래너에 서비스·액션 요청, `/planning/drive_mode` 발행 | 직접 작성 |
+| planner_server | Nav2 SmacPlanner2D, global_costmap. 전역 경로 | 기존 패키지 |
+| approach_planner | 선반 앞 정렬 pose | 직접 작성 |
+| grasp_planner | 서 있음: 위 / 누움: 측면 + 롤 | 직접 작성 |
+| arm_ik_planner | 5축 해석적 IK, 간섭 검사 | 직접 작성 |
+| bin_manager | 적재통 슬롯(가로 배치, 위치 **[미정]**) | 직접 작성 |
+| traffic_behavior | 신호등 RED/YELLOW → HOLD | 직접 작성 |
+| health_monitor **[보류]** | 이전 설계의 장애 판정 노드. 새 차트에 없어 유지 여부 미정 |  |
 
 ## 토픽 · 서비스 · 액션
 
@@ -97,159 +117,66 @@ export const edges = [
 
 | 이름 | 방식 | 타입 | 보내는 쪽 → 받는 쪽 | 비고 |
 | --- | --- | --- | --- | --- |
-| `navigate_to_pose` | action | `nav2_msgs/action/NavigateToPose` | planning_master → Nav2 |  |
-| `/pick_puck` | action | `team_interfaces/action/PickPuck` | planning_master → pick_server |  |
-| `/map` | topic | `nav_msgs/OccupancyGrid` | map_server → Nav2 (transient local) |  |
+| `/planning/execute_task` | action | [타입 미정] | mission_fsm → planning_master (feedback · result는 반대 방향) | goal · feedback · result 필드 미정 |
+| `compute_path_to_pose` | action | `nav2_msgs/action/ComputePathToPose` | planning_master → planner_server | Nav2 |
+| `/planning/approach_pose` | service | [타입 미정] | planning_master → approach_planner | |
+| `/planning/plan_grasp` | service | [타입 미정] | planning_master → grasp_planner | |
+| `/planning/solve_ik` | service | [타입 미정] | planning_master → arm_ik_planner | |
+| `/planning/bin_slot` | service | [타입 미정] | planning_master → bin_manager | |
+| 슬롯 자세 | topic | [타입 미정] | bin_manager → arm_ik_planner | 토픽 이름 미정 |
 
 ### 다른 파트로 나가는 것
 
 | 이름 | 방식 | 타입 | 보내는 쪽 → 받는 쪽 | 비고 |
 | --- | --- | --- | --- | --- |
-| `/cmd_vel_nav` | topic | `geometry_msgs/TwistStamped` | Nav2 controller → velocity_smoother (20 Hz) |  |
-| `/arm_controller/follow_joint_trajectory` | action | `control_msgs/action/FollowJointTrajectory` | pick_server → control_master의 팔 JTC. 접촉 감지 시 pick_server가 취소 |  |
-| `/gripper_controller/gripper_cmd` | action | `control_msgs/action/GripperCommand` | pick_server → control_master의 그리퍼 컨트롤러 |  |
-| `/perception/puck_map/set_state` | service | `team_interfaces/SetPuckState` | planning_master → puck_map | 운반 후 PICKED, 집기 실패로 사라지면 LOST |
-| `/state/emergency` | topic | `std_msgs/Bool` | planning_master → 모두 |  |
-| `/state/operation_mode` | topic | `std_msgs/String` | planning_master → 모두 |  |
-| `/state/mission_phase` | topic | `std_msgs/String` (IDLE · SURVEY · TRANSPORT · DONE) | planning_master → 모두. 인지는 이 값으로 퍽 지도 누적과 그리퍼 카메라 처리를 켜고 끔 |  |
+| `/planning/path` | topic | [타입 미정] | planner_server → path_tracker | |
+| `/planning/dock_goal` | topic | [타입 미정] | approach_planner → dock_controller | |
+| `/planning/gripper_goal` | topic | [타입 미정] | grasp_planner → gripper_controller | |
+| `/planning/arm_trajectory` | topic | [타입 미정] | arm_ik_planner → arm_trajectory_executor | |
+| `/planning/drive_mode` | topic | [타입 미정] | planning_master → control_master | |
+| `/planning/traffic_hold` | topic | [타입 미정] | traffic_behavior → control_master | RED/YELLOW → HOLD |
+| `/perception/set_mode` | service | [타입 미정] | mission_fsm → perception_master | |
 
 ### 다른 파트에서 들어오는 것
 
 | 이름 | 방식 | 타입 | 보내는 쪽 → 받는 쪽 | 비고 |
 | --- | --- | --- | --- | --- |
-| `/perception/puck_map` | topic | `team_interfaces/PuckMap` | puck_map → planning_master | map 기준 퍽 목록. 순회 중 누적하고, 2단계에서 가까이 가면 같은 항목이 정밀하게 갱신됨. ID는 임무 내내 유지 |
-| `/perception/tower_light` | topic | `team_interfaces/TowerLight` | tower_light → planning_master | 칸별 켜짐 bool + 위치. 출처는 전면 또는 그리퍼 RealSense (미정). 규칙 확정 전 가정 |
-| `/perception/hand_target` | topic | `team_interfaces/HandTarget` | hand_align → pick_server | 운반 단계에서 그리퍼 카메라에 퍽이 보이는 동안 |
-| AprilTag · 바코드 결과 | 미정 | 미정 | apriltag_detector, barcode_reader → 판단 | 형식·토픽 미정. 규칙 확정 전 가정 |
-| `/camera/camera/depth/color/points` | topic | `sensor_msgs/PointCloud2` | realsense2_camera(전면) → Nav2 costmap, collision_monitor (10-15 Hz로 다운샘플) |  |
-| (나) `/odometry/filtered` + odom → base_link | topic + TF | `nav_msgs/Odometry` | localization(EKF) → Nav2 |  |
-| map → odom | TF |  | (나) static_transform_publisher(출발 자세) 또는 AMCL / (가) 미정 → 모두 |  |
-| `/joint_states` | topic | `sensor_msgs/JointState` | joint_state_broadcaster → robot_state_publisher, pick_server, planning_master |  |
-| `/gripper/range` | topic | `sensor_msgs/Range` | 보내는 쪽 미정(거리 센서를 OpenCR 또는 Jetson 중 어디에 연결할지 미정) → pick_server |  |
-| `/cmd/e_stop` | topic | `std_msgs/Bool` | 사람 → planning_master |  |
-| `/cmd/operation_mode` | topic | `std_msgs/String` (AUTO · MANUAL) | 사람 → planning_master |  |
-| `/diagnostics` | topic | `diagnostic_msgs/DiagnosticArray` | 모든 파트 → health_monitor. FAULT를 planning_master로 전달하는 방식 미정 |  |
-| `/tf_static` | topic | TF2 | robot_state_publisher → 모두. base_link → camera_link, base_link → arm_base_link (값은 URDF에만, 팔 장착 위치 [미정]) |  |
-| `/tf` | topic | TF2 | robot_state_publisher → 모두. 팔 관절에 따라 움직이는 그리퍼 카메라 링크 |  |
+| `/perception/state` | topic | [타입 미정] | perception_master → mission_fsm, planning_master | |
+| `/perception/traffic_light` | topic | [타입 미정] | traffic_light_filter → perception_master, traffic_behavior | 3프레임 확정 |
+| `/odometry/filtered` + TF odom → base_link | topic + TF | `nav_msgs/Odometry` | ekf_node → planning_master, planner_server, path_tracker, dock_controller | odom → base_link는 ekf_node만 |
+| TF map → odom + `/amcl_pose` | TF + topic | `geometry_msgs/PoseWithCovarianceStamped` | amcl → planning_master, control_master | map → odom은 amcl만 |
+| `/map` | topic | `nav_msgs/OccupancyGrid` | map_server → amcl, planner_server(global_costmap) | `map.yaml`에서 로드 |
+| `/scan` | topic | `sensor_msgs/LaserScan` | depthimage_to_laserscan → amcl, collision_monitor, planner_server(costmap), slam_toolbox(매핑 시) | 틸트 10°에서 바닥을 벽으로 오인식할 위험 **[검토 중]** |
+| `/perception/obstacles` | topic | [타입 미정] (점군) | obstacle_detector → perception_master, collision_monitor, planner_server(costmap) | 바닥 제거 점군 |
+| `/control/status` | topic | [타입 미정] | control_master → planning_master | 피드백 |
+| `/arm/joint_states` | topic | [타입 미정] | arm_bridge → robot_state_publisher, arm_trajectory_executor, gripper_controller, planning_master | 피드백 |
 
 ## 커스텀 메시지 (team_interfaces)
 
-이 파트가 보내거나 받는 메시지만 옮겼다.
-
-<Callout type="warn" title="초안">
-  아직 회의 중인 초안이다. msg 파일이 바뀌면 모든 팀원이 team_interfaces를 다시 빌드해야 한다.
+<Callout type="warn" title="[개정 필요]">
+  이전 설계의 PuckMap·MappedPuck·SetPuckState·TowerLight·HandTarget·PickPuck 정의는 새 노드 구조와 맞지 않는다(새 차트에는 puck_map·HandTarget가 없다).
+  새로 정하기 전까지 이 페이지에는 옛 정의를 싣지 않는다. 위 표의 **[타입 미정]** 토픽·서비스·액션이 새 메시지 후보다.
 </Callout>
-
-**PuckMap.msg**
-
-```text
-std_msgs/Header header         # frame_id: map, stamp: 마지막 갱신 시각
-MappedPuck[] pucks
-```
-
-**MappedPuck.msg**
-
-```text
-uint32 id                      # 고유 번호, 임무 내내 유지
-uint8 COLOR_RED=0
-uint8 COLOR_GREEN=1
-uint8 COLOR_BLUE=2
-uint8 color                    # 투표 결과
-uint8 SHAPE_CYLINDER=0
-uint8 SHAPE_BOX=1
-uint8 shape                    # 투표 결과
-bool standing                  # 투표 결과
-geometry_msgs/Point position   # map 기준 m, 가중 평균 (z≈0.08)
-float32 yaw                    # 그리퍼 롤 목표각 (rad)
-float32 position_std           # 위치 불확실도 (m)
-uint16 n_obs                   # 관측 횟수
-builtin_interfaces/Time last_seen
-uint8 STATE_TENTATIVE=0        # 관측 부족
-uint8 STATE_CONFIRMED=1
-uint8 STATE_PICKED=2
-uint8 STATE_LOST=3             # 집기 실패 등으로 사라짐
-uint8 state
-```
-
-**SetPuckState.srv**
-
-```text
-uint32 id
-uint8 state                    # MappedPuck의 STATE_*
----
-bool success
-string message
-```
-
-**TowerLight.msg**
-
-```text
-std_msgs/Header header
-bool detected                  # 경광등이 보이는지
-bool red                       # 칸별 켜짐 (전부 false면 꺼짐)
-bool amber
-bool green
-geometry_msgs/Point position   # 경광등 위치
-float32 confidence
-```
-
-**HandTarget.msg**
-
-```text
-std_msgs/Header header
-bool detected
-float32 err_x                  # 화면 중심 오차 (-1~1)
-float32 err_y
-float32 yaw                    # 최종 롤 보정값 (rad)
-float32 distance               # 그리퍼가 RealSense라 depth 사용 가능 (방식 미정)
-uint8 shape
-uint8 color                    # 손 카메라로 색 재확인
-bool standing
-```
-
-**PickPuck.action**
-
-```text
-# Goal
-uint32 puck_id
-geometry_msgs/PointStamped target
-float32 yaw
-uint8 MODE_PICK=0
-uint8 MODE_PLACE=1
-uint8 mode
----
-# Result
-bool success
-uint8 REASON_NONE=0
-uint8 REASON_NOT_SEEN=1        # 손 카메라에 안 보임
-uint8 REASON_EMPTY_GRIP=2      # 빈손
-uint8 REASON_UNREACHABLE=3
-uint8 REASON_CONTACT=4         # 팔 접촉 감지
-uint8 reason
----
-# Feedback
-uint8 STAGE_APPROACH=0
-uint8 STAGE_ALIGN=1
-uint8 STAGE_GRASP=2
-uint8 STAGE_LIFT=3
-uint8 STAGE_STOW=4
-uint8 stage
-```
 
 ## 통신 규칙
 
-| 토픽 | 발행 주기 | 결과가 없을 때 | QoS |
-| --- | --- | --- | --- |
-| `/perception/puck_map` | 목록이 바뀔 때 + 주기적(약 1 Hz) | 빈 배열 | reliable, depth 1, transient local |
-| `/perception/tower_light` | 프레임마다, 최근 N프레임 기준 | `detected: false` | reliable, depth 1, transient local |
-| `/perception/hand_target` | 프레임마다 | `detected: false` | reliable, depth 1 |
-
-- 받는 쪽은 보내는 쪽 QoS에 맞춰야 한다. 맞지 않으면 에러 없이 메시지가 안 온다.
+- **하위 플래너가 결과 토픽을 제어로 직접 발행**한다. planning_master는 서비스·액션 요청과 `/planning/drive_mode`를 맡는다.
+- **신호등은 traffic_behavior가 `/perception/traffic_light`를 직접 구독**한다.
+- 받는 쪽은 보내는 쪽 QoS에 맞춰야 한다. 맞지 않으면 에러 없이 메시지가 안 온다. 토픽별 QoS 표는 새 토픽 기준으로 **[개정 필요]**.
 - 받는 쪽은 `header.stamp`를 보고, 예를 들어 0.5초 넘게 새 메시지가 없으면 멈추는 처리를 넣는다.
 - 콜백에서는 값만 저장하고, 판단은 타이머에서 최신 값을 보고 내린다.
-- **안전 정지 3단**: planning_master 입력 타임아웃 → control_master 명령 타임아웃 → 펌웨어 watchdog.
-- **map → odom이 나오기 전에는 주행 목표를 보내지 않는다.**
-- 판단은 가까이 간 뒤 해당 퍽의 `position_std`가 기준(초안 1 cm)보다 작아지면 집기 명령을 내린다.
-- `/state/*` 값은 transient local로 발행해서 늦게 켜진 노드도 현재 상태를 바로 받게 한다.
+- 측면·후방 사각 때문에 costmap inflation을 0.33 m 이상(외접원 283 mm + 여유 50 mm)으로 둔다 **[검토 중]**.
+
+### yaw 범위 규칙 [검토 중]
+
+이전 설계의 규칙이다. grasp_planner(서 있음: 위 / 누움: 측면 + 롤) 기준으로 다시 확인한다.
+
+| 퍽 상태 | 대칭 | 보낼 범위 |
+| --- | --- | --- |
+| 서 있는 원통 | 어느 방향이든 같음 | 0 고정 |
+| 서 있는 직육면체 | 90°마다 | −45°에서 +45° |
+| 누운 원통 · 직육면체 | 180°마다 | −90°에서 +90° |
+
+공통 설정: 모든 노드는 같은 `ROS_DOMAIN_ID`와 같은 RMW 구현을 쓴다. 카메라 노드는 한 곳에서만 실행하고, 컨테이너를 나눌 때는 `--network host --ipc host`를 쓴다.
 
 [← 분담 구조도로 돌아가기](../nz2-parts/#분담-구조도)
